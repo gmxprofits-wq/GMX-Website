@@ -325,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateCoinDisplays();
                 syncUserCoins();
 
-                // Save last spin timestamp
                 if (user) {
                     user.lastSpinTime = Date.now();
                     saveUsersDB(db);
