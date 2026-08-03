@@ -72,7 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeUserJson = localStorage.getItem(SESSION_KEY);
         if (activeUserJson) {
             const userData = JSON.parse(activeUserJson);
-            loginUserSession(userData, false);
+            // Re-fetch latest user data from DB to guarantee inbox sync across sessions
+            const db = getUsersDB();
+            const freshUser = db[userData.username] || userData;
+            loginUserSession(freshUser, false);
         }
     }
 
@@ -184,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function loginUserSession(user, remember) {
         state.currentUser = user.username;
-        state.coins = user.coins || 1250;
+        state.coins = user.coins !== undefined ? user.coins : 1250;
 
         if (remember) {
             localStorage.setItem(SESSION_KEY, JSON.stringify(user));
@@ -406,6 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const db = getUsersDB();
+            const senderUser = db[state.currentUser];
             const recipientUser = db[recipientName];
 
             if (!recipientUser) {
@@ -424,10 +428,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
+                // Deduct from current state & sender DB record
                 state.coins -= amount;
                 updateCoinDisplays();
-                syncUserCoins();
+                
+                if (senderUser) {
+                    senderUser.coins = state.coins;
+                }
 
+                // Add to recipient DB record instantly
                 if (!recipientUser.giftsInbox) recipientUser.giftsInbox = [];
                 recipientUser.giftsInbox.push({
                     sender: state.currentUser,
@@ -437,24 +446,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     timestamp: new Date().toISOString(),
                     claimed: false
                 });
+                
+                // Save complete DB state (updates both sender balance and recipient inbox instantly)
                 saveUsersDB(db);
 
-                showCustomAlert(`Successfully sent ${amount} GMX Coins to ${recipientName} with custom message!`, "success");
+                showCustomAlert(`Successfully sent ${amount} GMX Coins to ${recipientName}!`, "success");
                 triggerGiftAnimationEffects();
                 elements.giftForm.reset();
 
             } else {
                 const modName = elements.giftModSelect.value;
-                const currentUserObj = db[state.currentUser];
                 
-                if (!currentUserObj.inventory || !currentUserObj.inventory.includes(modName)) {
+                if (!senderUser.inventory || !senderUser.inventory.includes(modName)) {
                     showCustomAlert("You do not own this mod in your inventory to gift it!", "error");
                     return;
                 }
 
-                currentUserObj.inventory = currentUserObj.inventory.filter(item => item !== modName);
-                saveUsersDB(db);
+                // Remove from sender inventory
+                senderUser.inventory = senderUser.inventory.filter(item => item !== modName);
 
+                // Add to recipient inbox instantly
                 if (!recipientUser.giftsInbox) recipientUser.giftsInbox = [];
                 recipientUser.giftsInbox.push({
                     sender: state.currentUser,
@@ -464,6 +475,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     timestamp: new Date().toISOString(),
                     claimed: false
                 });
+                
+                // Save complete DB state
                 saveUsersDB(db);
 
                 showCustomAlert(`Successfully sent mod "${modName}" to ${recipientName}!`, "success");
@@ -524,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveUsersDB(db);
         renderGiftsInbox();
         triggerGiftAnimationEffects();
-        showCustomAlert("Gift successfully claimed and added to your account with festive alert animations!", "success");
+        showCustomAlert("Gift successfully claimed and added to your account!", "success");
     }
 
     function checkIncomingGifts(user) {
