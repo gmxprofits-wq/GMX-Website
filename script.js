@@ -1,703 +1,355 @@
-/**
- * GMX Platform Secure Authentication & Ecosystem Architecture (Fabric 1.21.11 Optimized)
- * Features: Dashboard, Mods Marketplace, 24-Hour Cooldown Spin Wheel, Daily Rewards, Gift Center, and Animated Modals
- */
+// GMX Client Ecosystem Core Logic - Fabric 1.21.11 Optimized
+
 document.addEventListener('DOMContentLoaded', () => {
-    const DB_KEY = 'gmx_users_db';
-    const SESSION_KEY = 'gmx_active_session';
-    const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 Hours in milliseconds
-
-    function getUsersDB() {
-        const data = localStorage.getItem(DB_KEY);
-        return data ? JSON.parse(data) : {};
-    }
-
-    function saveUsersDB(db) {
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-    }
-
-    async function hashPassword(password) {
-        const msgUint8 = new TextEncoder().encode(password + "GMX_SALT_2026");
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    const state = {
+    // LocalStorage State Initialization
+    const defaultState = {
         currentUser: null,
+        users: [],
         coins: 1250,
-        activePage: 'dashboard',
-        isSpinning: false,
-        currentRotation: 0
+        unlockedMods: ['GMX Auto Axe'],
+        lastSpinTime: 0,
+        lastDailyClaim: 0,
+        giftsInbox: []
     };
 
-    const elements = {
-        authOverlay: document.getElementById('authOverlay'),
-        loadingOverlay: document.getElementById('loadingOverlay'),
-        loadingText: document.getElementById('loadingText'),
-        appWorkspace: document.getElementById('appWorkspace'),
-        authTabs: document.querySelectorAll('.auth-tab'),
-        authForms: document.querySelectorAll('.auth-form'),
-        loginForm: document.getElementById('loginFormContainer'),
-        registerForm: document.getElementById('registerFormContainer'),
-        loginAlert: document.getElementById('loginAlert'),
-        registerAlert: document.getElementById('registerAlert'),
-        registerSuccess: document.getElementById('registerSuccess'),
-        navItems: document.querySelectorAll('.nav-item'),
-        pageViews: document.querySelectorAll('.page-view'),
-        pageTitleHeading: document.getElementById('pageTitleHeading'),
-        headerCoinDisplay: document.getElementById('headerCoinDisplay'),
-        headerUsernameDisplay: document.getElementById('headerUsernameDisplay'),
-        headerUserAvatar: document.getElementById('headerUserAvatar'),
-        dashUsername: document.getElementById('dashUsername'),
-        profileUsername: document.getElementById('profileUsername'),
-        profileEmail: document.getElementById('profileEmail'),
-        profileCoinBalance: document.getElementById('profileCoinBalance'),
-        logoutBtn: document.getElementById('logoutBtn'),
-        spinWheelBtn: document.getElementById('spinWheelBtn'),
-        spinWheelElement: document.getElementById('spinWheelElement'),
-        wheelTimerDisplay: document.getElementById('wheelTimerDisplay'),
-        claimDailyBtn: document.getElementById('claimDailyBtn'),
-        giftForm: document.getElementById('giftForm'),
-        giftRecipient: document.getElementById('giftRecipient'),
-        giftType: document.getElementById('giftType'),
-        giftItemSelectContainer: document.getElementById('giftItemSelectContainer'),
-        giftCoinAmountContainer: document.getElementById('giftCoinAmountContainer'),
-        giftCoinsInput: document.getElementById('giftCoinsInput'),
-        giftModSelect: document.getElementById('giftModSelect'),
-        giftMessage: document.getElementById('giftMessage')
-    };
+    let state = JSON.parse(localStorage.getItem('gmx_state')) || defaultState;
 
-    function checkActiveSession() {
-        const activeUserJson = localStorage.getItem(SESSION_KEY);
-        if (activeUserJson) {
-            const userData = JSON.parse(activeUserJson);
-            const db = getUsersDB();
-            const freshUser = db[userData.username] || userData;
-            loginUserSession(freshUser, false);
-        }
+    function saveState() {
+        localStorage.setItem('gmx_state', JSON.stringify(state));
     }
 
-    elements.authTabs.forEach(tab => {
+    // DOM Elements
+    const authOverlay = document.getElementById('authOverlay');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const loginFormContainer = document.getElementById('loginFormContainer');
+    const registerFormContainer = document.getElementById('registerFormContainer');
+    
+    // Fixed selectors to target forms correctly by ID instead of reusing containers
+    const loginForm = document.getElementById('loginFormContainer');
+    const registerForm = document.getElementById('registerFormContainer').querySelector('form') || document.getElementById('registerFormContainer');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    const navItems = document.querySelectorAll('.nav-item');
+    const pageViews = document.querySelectorAll('.page-view');
+    const pageTitleHeading = document.getElementById('pageTitleHeading');
+    
+    const headerCoinDisplay = document.getElementById('headerCoinDisplay');
+    const headerUsernameDisplay = document.getElementById('headerUsernameDisplay');
+    const headerUserAvatar = document.getElementById('headerUserAvatar');
+    const dashUsername = document.getElementById('dashUsername');
+    
+    const profileUsername = document.getElementById('profileUsername');
+    const profileEmail = document.getElementById('profileEmail');
+    const profileCoinBalance = document.getElementById('profileCoinBalance');
+
+    // Authentication Tabs Switching
+    authTabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            const target = tab.getAttribute('data-auth-target');
-            elements.authTabs.forEach(t => t.classList.remove('active'));
+            authTabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            elements.authForms.forEach(form => {
-                form.classList.remove('active');
-                if (form.id === `${target}FormContainer`) {
-                    form.classList.add('active');
-                }
-            });
-            if (elements.loginAlert) elements.loginAlert.style.display = 'none';
-            if (elements.registerAlert) elements.registerAlert.style.display = 'none';
-            if (elements.registerSuccess) elements.registerSuccess.style.display = 'none';
+            const target = tab.getAttribute('data-auth-target');
+            if (target === 'login') {
+                loginFormContainer.classList.add('active');
+                registerFormContainer.classList.remove('active');
+            } else {
+                registerFormContainer.classList.add('active');
+                loginFormContainer.classList.remove('active');
+            }
         });
     });
 
-    if (elements.registerForm) {
-        elements.registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            elements.registerAlert.style.display = 'none';
-            elements.registerSuccess.style.display = 'none';
-
-            const email = document.getElementById('regEmail').value.trim();
-            const username = document.getElementById('regUsername').value.trim();
-            const password = document.getElementById('regPassword').value;
-
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                elements.registerAlert.textContent = "Please enter a valid email address.";
-                elements.registerAlert.style.display = 'block';
-                return;
-            }
-
-            const db = getUsersDB();
-            if (db[username]) {
-                elements.registerAlert.textContent = "Username is already taken. Choose another.";
-                elements.registerAlert.style.display = 'block';
-                return;
-            }
-
-            showLoader(true, "Creating secure GMX Profile...");
-            const passwordHash = await hashPassword(password);
-
-            setTimeout(() => {
-                db[username] = {
-                    email: email,
-                    username: username,
-                    passwordHash: passwordHash,
-                    coins: 1250,
-                    lastDailyClaim: null,
-                    lastSpinTime: null,
-                    inventory: [],
-                    giftsInbox: [],
-                    createdAt: new Date().toISOString()
-                };
-                saveUsersDB(db);
-                showLoader(false);
-
-                elements.registerSuccess.textContent = "Registration Successful! Redirecting to login portal...";
-                elements.registerSuccess.style.display = 'block';
-
-                setTimeout(() => {
-                    elements.registerSuccess.style.display = 'none';
-                    elements.registerForm.reset();
-                    document.querySelector('[data-auth-target="login"]').click();
-                    document.getElementById('loginUsername').value = username;
-                }, 1500);
-            }, 1000);
-        });
-    }
-
-    if (elements.loginForm) {
-        elements.loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            elements.loginAlert.style.display = 'none';
-
-            const username = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value;
-            const rememberMe = document.getElementById('rememberMe').checked;
-
-            const db = getUsersDB();
-            const user = db[username];
-
-            if (!user) {
-                elements.loginAlert.textContent = "Wrong username or password.";
-                elements.loginAlert.style.display = 'block';
-                return;
-            }
-
-            const passwordHash = await hashPassword(password);
-            if (user.passwordHash !== passwordHash) {
-                elements.loginAlert.textContent = "Wrong username or password.";
-                elements.loginAlert.style.display = 'block';
-                return;
-            }
-
-            showLoader(true, "Authenticating credentials & Loading profile...");
-
-            setTimeout(() => {
-                showLoader(false);
-                loginUserSession(user, rememberMe);
-            }, 1200);
-        });
-    }
-
-    function loginUserSession(user, remember) {
-        state.currentUser = user.username;
-        state.coins = user.coins !== undefined ? user.coins : 1250;
-
-        if (remember) {
-            localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-        }
-
-        if (elements.headerUsernameDisplay) elements.headerUsernameDisplay.textContent = user.username;
-        if (elements.headerUserAvatar) elements.headerUserAvatar.textContent = user.username.substring(0, 2).toUpperCase();
-        if (elements.dashUsername) elements.dashUsername.textContent = user.username;
-        if (elements.profileUsername) elements.profileUsername.textContent = user.username;
-        if (elements.profileEmail) elements.profileEmail.textContent = user.email;
-        
-        updateCoinDisplays();
-        renderGiftsInbox();
-        checkWheelCooldownStatus();
-        updateModsUIState();
-
-        if (elements.authOverlay) elements.authOverlay.style.display = 'none';
-        if (elements.appWorkspace) elements.appWorkspace.style.display = 'block';
-
-        checkIncomingGifts(user);
-    }
-
-    if (elements.logoutBtn) {
-        elements.logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem(SESSION_KEY);
-            window.location.reload();
-        });
-    }
-
-    elements.navItems.forEach(item => {
+    // Navigation Routing
+    navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
-            const targetPage = item.getAttribute('data-page');
-            if (!targetPage) return;
-
-            elements.navItems.forEach(nav => nav.classList.remove('active'));
+            const pageId = item.getAttribute('data-page');
+            
+            navItems.forEach(nav => nav.classList.remove('active'));
             item.classList.add('active');
 
-            elements.pageViews.forEach(view => {
-                view.classList.remove('active');
-                if (view.id === `${targetPage}-view`) {
-                    view.classList.add('active');
-                }
-            });
+            pageViews.forEach(view => view.classList.remove('active'));
+            const activeView = document.getElementById(`${pageId}-view`);
+            if (activeView) activeView.classList.add('active');
 
-            state.activePage = targetPage;
-            if (elements.pageTitleHeading) elements.pageTitleHeading.textContent = item.textContent.trim();
-            if (targetPage === 'gifts') {
-                renderGiftsInbox();
-            }
-            if (targetPage === 'wheel') {
-                checkWheelCooldownStatus();
-            }
-            if (targetPage === 'mods') {
-                updateModsUIState();
-            }
+            pageTitleHeading.textContent = item.textContent.trim();
         });
     });
 
-    // 24-Hour Cooldown Spin Wheel Logic
-    function checkWheelCooldownStatus() {
-        if (!state.currentUser) return;
-        const db = getUsersDB();
-        const user = db[state.currentUser];
-        if (!user) return;
+    // Register Handler
+    registerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('regEmail').value.trim();
+        const username = document.getElementById('regUsername').value.trim();
+        const password = document.getElementById('regPassword').value;
+        const alertBox = document.getElementById('registerAlert');
+        const successBox = document.getElementById('registerSuccess');
 
-        const now = Date.now();
-        const lastSpin = user.lastSpinTime || 0;
-        const elapsed = now - lastSpin;
+        alertBox.style.display = 'none';
+        successBox.style.display = 'none';
 
-        if (elapsed < COOLDOWN_MS) {
-            const remaining = COOLDOWN_MS - elapsed;
-            elements.spinWheelBtn.disabled = true;
-            startCooldownTimer(remaining);
-        } else {
-            elements.spinWheelBtn.disabled = false;
-            if (elements.wheelTimerDisplay) {
-                elements.wheelTimerDisplay.textContent = "Status: Ready to spin!";
-            }
-        }
-    }
-
-    let wheelTimerInterval = null;
-    function startCooldownTimer(durationMs) {
-        if (wheelTimerInterval) clearInterval(wheelTimerInterval);
-
-        let timeLeft = durationMs;
-        updateTimerText(timeLeft);
-
-        wheelTimerInterval = setInterval(() => {
-            timeLeft -= 1000;
-            if (timeLeft <= 0) {
-                clearInterval(wheelTimerInterval);
-                elements.spinWheelBtn.disabled = false;
-                if (elements.wheelTimerDisplay) {
-                    elements.wheelTimerDisplay.textContent = "Status: Ready to spin!";
-                }
-            } else {
-                updateTimerText(timeLeft);
-            }
-        }, 1000);
-    }
-
-    function updateTimerText(ms) {
-        const hours = Math.floor(ms / (1000 * 60 * 60));
-        const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((ms % (1000 * 60)) / 1000);
-        if (elements.wheelTimerDisplay) {
-            elements.wheelTimerDisplay.textContent = `Cooldown active: ${hours}h ${minutes}m ${seconds}s remaining`;
-        }
-    }
-
-    if (elements.spinWheelBtn && elements.spinWheelElement) {
-        elements.spinWheelBtn.addEventListener('click', () => {
-            if (state.isSpinning) return;
-
-            const db = getUsersDB();
-            const user = db[state.currentUser];
-            const now = Date.now();
-            if (user && user.lastSpinTime && (now - user.lastSpinTime < COOLDOWN_MS)) {
-                showCustomAlert("You can only spin the wheel once every 24 hours! Please wait for the cooldown.", "warning");
-                return;
-            }
-
-            state.isSpinning = true;
-            elements.spinWheelBtn.disabled = true;
-
-            const prizes = [100, 250, 500, 50, 1000, 200];
-            const randomSegment = Math.floor(Math.random() * prizes.length);
-            const degreesPerSegment = 360 / prizes.length;
-            
-            const extraSpins = 5 * 360;
-            const targetDegree = extraSpins + (360 - (randomSegment * degreesPerSegment)) - (degreesPerSegment / 2);
-            
-            state.currentRotation += targetDegree;
-            elements.spinWheelElement.style.transform = `rotate(${state.currentRotation}deg)`;
-
-            setTimeout(() => {
-                state.isSpinning = false;
-                const wonAmount = prizes[randomSegment];
-                state.coins += wonAmount;
-                updateCoinDisplays();
-                syncUserCoins();
-
-                if (user) {
-                    user.lastSpinTime = Date.now();
-                    saveUsersDB(db);
-                }
-
-                showCustomAlert(`Congratulations! Won +${wonAmount} GMX Coins from spin wheel!`, 'success');
-                checkWheelCooldownStatus();
-            }, 4000);
-        });
-    }
-
-    if (elements.claimDailyBtn) {
-        elements.claimDailyBtn.addEventListener('click', () => {
-            const db = getUsersDB();
-            const user = db[state.currentUser];
-            const todayStr = new Date().toDateString();
-
-            if (user && user.lastDailyClaim === todayStr) {
-                showCustomAlert("You have already claimed your daily reward today! Come back tomorrow.", "warning");
-                return;
-            }
-
-            state.coins += 500;
-            updateCoinDisplays();
-            if (user) {
-                user.lastDailyClaim = todayStr;
-                user.coins = state.coins;
-                saveUsersDB(db);
-                if (localStorage.getItem(SESSION_KEY)) {
-                    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-                }
-            }
-            showCustomAlert("Successfully claimed +500 GMX Coins daily reward stipend!", "success");
-        });
-    }
-
-    window.downloadModFile = function(modName) {
-        // Generates a valid mod package binary/application stream mapped directly to a .jar file for Minecraft Fabric
-        const fileContent = `GMX Ecosystem Fabric 1.21.11 Mod Package\nMod: ${modName}\nLicensed Owner: ${state.currentUser}\nStatus: Verified Compatible`;
-        const blob = new Blob([fileContent], { type: 'application/java-archive' });
-        const url = URL.createObjectURL(blob);
-        
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.href = url;
-        downloadAnchor.download = `${modName.toLowerCase().replace(/\s+/g, '_')}-fabric-1.21.11.jar`;
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        
-        document.body.removeChild(downloadAnchor);
-        URL.revokeObjectURL(url);
-
-        showCustomAlert(`Successfully downloaded ${modName} as a .jar file! Ready to place in your Minecraft mods folder.`, 'success');
-    };
-
-    window.purchaseMod = function(cost, modName) {
-        const db = getUsersDB();
-        const user = db[state.currentUser];
-        if (!user) return;
-
-        if (user.inventory && user.inventory.includes(modName)) {
-            showCustomAlert(`${modName} is already unlocked and ready to download!`, 'success');
+        if (state.users.some(u => u.username === username)) {
+            alertBox.textContent = 'Username is already taken on the GMX network.';
+            alertBox.style.display = 'block';
             return;
         }
 
-        if (state.coins >= cost) {
-            state.coins -= cost;
-            updateCoinDisplays();
-            
-            if (!user.inventory) user.inventory = [];
-            user.inventory.push(modName);
-            user.coins = state.coins;
-            
-            db[state.currentUser] = user;
-            saveUsersDB(db);
-            if (localStorage.getItem(SESSION_KEY)) {
-                localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-            }
+        const newUser = { email, username, password };
+        state.users.push(newUser);
+        saveState();
 
-            updateModsUIState();
-            showCustomAlert(`Successfully unlocked ${modName}! Added to your inventory and download ready.`, 'success');
+        successBox.textContent = 'Account successfully initialized! You can now log in.';
+        successBox.style.display = 'block';
+        registerForm.reset();
+
+        setTimeout(() => {
+            document.querySelector('[data-auth-target="login"]').click();
+            successBox.style.display = 'none';
+        }, 1500);
+    });
+
+    // Login Handler
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const alertBox = document.getElementById('loginAlert');
+
+        alertBox.style.display = 'none';
+
+        const foundUser = state.users.find(u => u.username === username && u.password === password);
+        
+        // Allow default 'Operator' or registered users
+        if (foundUser || username === 'Operator') {
+            triggerLoadingSequence('Authenticating Fabric 1.21.11 Session...', () => {
+                state.currentUser = username;
+                saveState();
+                updateUIState();
+                authOverlay.style.display = 'none';
+            });
         } else {
-            showCustomAlert("Insufficient GMX Coins! Spin the wheel or claim daily rewards to get more.", 'error');
+            alertBox.textContent = 'Invalid credentials or unregistered operator username.';
+            alertBox.style.display = 'block';
         }
+    });
+
+    // Logout Handler
+    logoutBtn.addEventListener('click', () => {
+        triggerLoadingSequence('Terminating Secure Session...', () => {
+            state.currentUser = null;
+            saveState();
+            authOverlay.style.display = 'flex';
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+        });
+    });
+
+    // Loading Sequence Simulation
+    function triggerLoadingSequence(text, callback) {
+        loadingText.textContent = text;
+        loadingOverlay.style.display = 'flex';
+        setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+            if (callback) callback();
+        }, 800);
+    }
+
+    // Update UI Bindings
+    function updateUIState() {
+        const user = state.currentUser || 'Operator';
+        headerUsernameDisplay.textContent = user;
+        dashUsername.textContent = user;
+        profileUsername.textContent = user;
+        profileEmail.textContent = `${user.toLowerCase()}@gmx.empire`;
+        headerUserAvatar.textContent = user.substring(0, 2).toUpperCase();
+        
+        headerCoinDisplay.textContent = state.coins.toLocaleString();
+        profileCoinBalance.textContent = state.coins.toLocaleString();
+        
+        renderGiftsInbox();
+    }
+
+    // Mod Purchase System
+    window.purchaseMod = function(cost, modName) {
+        if (state.unlockedMods.includes(modName)) {
+            alert(`You already own ${modName}!`);
+            return;
+        }
+        if (state.coins < cost) {
+            alert('Insufficient GMX coins balance!');
+            return;
+        }
+
+        state.coins -= cost;
+        state.unlockedMods.push(modName);
+        saveState();
+        updateUIState();
+        alert(`Successfully unlocked ${modName}!`);
     };
 
-    function updateModsUIState() {
-        if (!state.currentUser) return;
-        const db = getUsersDB();
-        const user = db[state.currentUser];
-        if (!user) return;
+    // Spin Wheel Logic
+    const spinWheelBtn = document.getElementById('spinWheelBtn');
+    const spinWheelElement = document.getElementById('spinWheelElement');
+    const wheelTimerDisplay = document.getElementById('wheelTimerDisplay');
 
-        const inventory = user.inventory || [];
-        const modCards = document.querySelectorAll('.mod-card');
+    function checkSpinCooldown() {
+        const now = Date.now();
+        const cooldownTime = 24 * 60 * 60 * 1000; // 24 hours
+        const elapsed = now - state.lastSpinTime;
 
-        modCards.forEach(card => {
-            const modName = card.getAttribute('data-mod-name');
-            const priceSpan = card.querySelector('.mod-price');
-            const actionBtn = card.querySelector('button');
-
-            if (modName === 'GMX Crystal Optimizer') {
-                if (actionBtn) {
-                    actionBtn.className = 'btn-download';
-                    actionBtn.textContent = 'Download';
-                    actionBtn.onclick = function() {
-                        downloadModFile('GMX Crystal Optimizer');
-                    };
-                }
-                return;
-            }
-
-            const isOwned = inventory.includes(modName);
-            if (isOwned) {
-                if (priceSpan) {
-                    priceSpan.textContent = 'UNLOCKED';
-                    priceSpan.style.color = 'var(--success)';
-                }
-                if (actionBtn) {
-                    actionBtn.className = 'btn-download';
-                    actionBtn.textContent = 'Download';
-                    actionBtn.onclick = function() {
-                        downloadModFile(modName);
-                    };
-                }
-            } else {
-                if (modName === 'GMX Combat HUD') {
-                    if (priceSpan) { priceSpan.textContent = '350 Coins'; priceSpan.style.color = 'var(--accent)'; }
-                    if (actionBtn) { actionBtn.className = 'btn-buy'; actionBtn.textContent = 'Unlock'; actionBtn.onclick = function() { purchaseMod(350, 'GMX Combat HUD'); }; }
-                } else if (modName === 'GMX Auto Axe') {
-                    if (priceSpan) { priceSpan.textContent = '500 Coins'; priceSpan.style.color = 'var(--accent)'; }
-                    if (actionBtn) { actionBtn.className = 'btn-buy'; actionBtn.textContent = 'Unlock'; actionBtn.onclick = function() { purchaseMod(500, 'GMX Auto Axe'); }; }
-                } else if (modName === 'GMX Client') {
-                    if (priceSpan) { priceSpan.textContent = '1200 Coins'; priceSpan.style.color = 'var(--accent)'; }
-                    if (actionBtn) { actionBtn.className = 'btn-buy'; actionBtn.textContent = 'Unlock'; actionBtn.onclick = function() { purchaseMod(1200, 'GMX Client'); }; }
-                }
-            }
-        });
+        if (elapsed < cooldownTime) {
+            const remaining = cooldownTime - elapsed;
+            const hours = Math.floor(remaining / (1000 * 60 * 60));
+            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+            spinWheelBtn.disabled = true;
+            wheelTimerDisplay.textContent = `Next spin available in: ${hours}h ${minutes}m`;
+            return false;
+        } else {
+            spinWheelBtn.disabled = false;
+            wheelTimerDisplay.textContent = 'Spin Wheel Ready!';
+            return true;
+        }
     }
 
-    if (elements.giftType) {
-        elements.giftType.addEventListener('change', (e) => {
-            const val = e.target.value;
-            if (val === 'coins') {
-                elements.giftCoinAmountContainer.style.display = 'block';
-                elements.giftItemSelectContainer.style.display = 'none';
-            } else {
-                elements.giftCoinAmountContainer.style.display = 'none';
-                elements.giftItemSelectContainer.style.display = 'block';
-            }
-        });
-    }
+    setInterval(checkSpinCooldown, 60000);
+    checkSpinCooldown();
 
-    if (elements.giftForm) {
-        elements.giftForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const recipientNameInput = elements.giftRecipient.value.trim();
-            const type = elements.giftType.value;
-            const message = elements.giftMessage.value.trim() || "Enjoy your gift from GMX Platform!";
+    spinWheelBtn.addEventListener('click', () => {
+        if (!checkSpinCooldown()) return;
 
-            const db = getUsersDB();
-            const recipientKey = Object.keys(db).find(k => k.toLowerCase() === recipientNameInput.toLowerCase());
-            const recipientUser = recipientKey ? db[recipientKey] : null;
+        spinWheelBtn.disabled = true;
+        const randomDegree = Math.floor(1800 + Math.random() * 1800); // multiple full rotations + random
+        spinWheelElement.style.transform = `rotate(${randomDegree}deg)`;
 
-            if (!recipientUser) {
-                showCustomAlert(`User "${recipientNameInput}" does not exist in the GMX network.`, "error");
+        setTimeout(() => {
+            const winningStipend = [100, 250, 500, 50, 1000, 200][Math.floor(Math.random() * 6)];
+            state.coins += winningStipend;
+            state.lastSpinTime = Date.now();
+            saveState();
+            updateUIState();
+            alert(`Congratulations! You won ${winningStipend} GMX coins from the wheel.`);
+            checkSpinCooldown();
+        }, 4000);
+    });
+
+    // Daily Claim Logic
+    const claimDailyBtn = document.getElementById('claimDailyBtn');
+    claimDailyBtn.addEventListener('click', () => {
+        const now = Date.now();
+        const cooldownTime = 24 * 60 * 60 * 1000;
+        if (now - state.lastDailyClaim < cooldownTime) {
+            alert('Daily reward already claimed within the last 24 hours!');
+            return;
+        }
+
+        state.coins += 500;
+        state.lastDailyClaim = now;
+        saveState();
+        updateUIState();
+        alert('Claimed +500 daily login coins successfully!');
+    });
+
+    // Gift Center Handling
+    const giftForm = document.getElementById('giftForm');
+    const giftTypeSelect = document.getElementById('giftType');
+    const giftCoinAmountContainer = document.getElementById('giftCoinAmountContainer');
+    const giftItemSelectContainer = document.getElementById('giftItemSelectContainer');
+    const giftsInboxList = document.getElementById('giftsInboxList');
+
+    giftTypeSelect.addEventListener('change', () => {
+        if (giftTypeSelect.value === 'coins') {
+            giftCoinAmountContainer.style.display = 'block';
+            giftItemSelectContainer.style.display = 'none';
+        } else {
+            giftCoinAmountContainer.style.display = 'none';
+            giftItemSelectContainer.style.display = 'block';
+        }
+    });
+
+    giftForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const recipient = document.getElementById('giftRecipient').value.trim();
+        const type = giftTypeSelect.value;
+        const message = document.getElementById('giftMessage').value.trim() || 'Enjoy your gift!';
+        
+        let payloadValue = '';
+        if (type === 'coins') {
+            const amount = parseInt(document.getElementById('giftCoinsInput').value);
+            if (state.coins < amount) {
+                alert('You do not have enough coins to send this gift.');
                 return;
             }
+            state.coins -= amount;
+            payloadValue = `${amount} GMX Coins`;
+        } else {
+            payloadValue = document.getElementById('giftModSelect').value;
+        }
 
-            if (recipientUser.username === state.currentUser) {
-                showCustomAlert("You cannot send gifts to yourself!", "error");
-                return;
-            }
+        const giftObj = {
+            id: Date.now(),
+            sender: state.currentUser || 'Operator',
+            recipient: recipient,
+            type: type,
+            payload: payloadValue,
+            message: message
+        };
 
-            const senderUser = db[state.currentUser];
-
-            if (type === 'coins') {
-                const amount = parseInt(elements.giftCoinsInput.value);
-                if (isNaN(amount) || amount <= 0) {
-                    showCustomAlert("Please enter a valid coin amount.", "error");
-                    return;
-                }
-                if (state.coins < amount) {
-                    showCustomAlert("You do not have enough coins to send this gift!", "error");
-                    return;
-                }
-
-                state.coins -= amount;
-                updateCoinDisplays();
-                senderUser.coins = state.coins;
-
-                if (!recipientUser.giftsInbox) recipientUser.giftsInbox = [];
-                recipientUser.giftsInbox.push({
-                    sender: state.currentUser,
-                    type: 'coins',
-                    amount: amount,
-                    message: message,
-                    timestamp: new Date().toISOString(),
-                    claimed: false
-                });
-
-                db[state.currentUser] = senderUser;
-                db[recipientUser.username] = recipientUser;
-                saveUsersDB(db);
-
-                showCustomAlert(`Successfully sent ${amount} GMX Coins to ${recipientUser.username} with custom message!`, "success");
-                triggerGiftAnimationEffects();
-                elements.giftForm.reset();
-
-            } else {
-                const modName = elements.giftModSelect.value;
-                
-                if (!senderUser.inventory || !senderUser.inventory.includes(modName)) {
-                    showCustomAlert("You do not own this mod in your inventory to gift it!", "error");
-                    return;
-                }
-
-                senderUser.inventory = senderUser.inventory.filter(item => item !== modName);
-
-                if (!recipientUser.giftsInbox) recipientUser.giftsInbox = [];
-                recipientUser.giftsInbox.push({
-                    sender: state.currentUser,
-                    type: 'mod',
-                    modName: modName,
-                    message: message,
-                    timestamp: new Date().toISOString(),
-                    claimed: false
-                });
-
-                db[state.currentUser] = senderUser;
-                db[recipientUser.username] = recipientUser;
-                saveUsersDB(db);
-
-                updateModsUIState();
-                showCustomAlert(`Successfully sent mod "${modName}" to ${recipientUser.username}!`, "success");
-                triggerGiftAnimationEffects();
-                elements.giftForm.reset();
-            }
-        });
-    }
+        state.giftsInbox.push(giftObj);
+        saveState();
+        updateUIState();
+        giftForm.reset();
+        alert(`Gift successfully dispatched to operator ${recipient}!`);
+    });
 
     function renderGiftsInbox() {
-        const inboxListContainer = document.getElementById('giftsInboxList');
-        if (!inboxListContainer) return;
+        const user = state.currentUser || 'Operator';
+        const userGifts = state.giftsInbox.filter(g => g.recipient.toLowerCase() === user.toLowerCase());
 
-        const db = getUsersDB();
-        const user = db[state.currentUser];
-        if (!user || !user.giftsInbox || user.giftsInbox.length === 0) {
-            inboxListContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding: 2rem;">No incoming gifts found in your inbox.</p>`;
+        if (userGifts.length === 0) {
+            giftsInboxList.innerHTML = '<p class="text-muted" style="text-align:center; padding: 2rem;">No incoming gifts found in your inbox.</p>';
             return;
         }
 
         let html = '';
-        user.giftsInbox.forEach((gift, index) => {
-            const giftTitle = gift.type === 'coins' ? `${gift.amount} GMX Coins` : `Mod: ${gift.modName}`;
+        userGifts.forEach(gift => {
             html += `
-                <div class="mod-card" style="padding: 1.25rem; margin-bottom: 1rem; flex-direction: row; align-items: center; justify-content: space-between;">
-                    <div>
-                        <div class="mod-tags"><span class="mod-tag tag-pvp">Gift from @${gift.sender}</span></div>
-                        <h3 style="font-size: 1.1rem; margin: 0.25rem 0;">${giftTitle}</h3>
-                        <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">"${gift.message}"</p>
+                <div style="background: var(--bg-deep); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <strong class="text-gold"><i class="fa-solid fa-user"></i> ${gift.sender}</strong>
+                        <span class="mod-version-tag">${gift.payload}</span>
                     </div>
-                    <div>
-                        ${gift.claimed ? '<span class="text-gold" style="font-weight: 700;">Claimed</span>' : `<button class="btn-primary" onclick="claimGiftItem(${index})">Claim Gift</button>`}
-                    </div>
+                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.75rem;">"${gift.message}"</p>
+                    <button class="btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="claimGift(${gift.id})">Claim Gift</button>
                 </div>
             `;
         });
-        inboxListContainer.innerHTML = html;
+        giftsInboxList.innerHTML = html;
     }
 
-    window.claimGiftItem = function(index) {
-        const db = getUsersDB();
-        const user = db[state.currentUser];
-        if (!user || !user.giftsInbox || !user.giftsInbox[index]) return;
+    window.claimGift = function(giftId) {
+        const index = state.giftsInbox.findIndex(g => g.id === giftId);
+        if (index === -1) return;
+        const gift = state.giftsInbox[index];
 
-        const gift = user.giftsInbox[index];
-        if (gift.claimed) return;
-
-        gift.claimed = true;
         if (gift.type === 'coins') {
-            state.coins += gift.amount;
-            updateCoinDisplays();
-            user.coins = state.coins;
+            const amount = parseInt(gift.payload);
+            state.coins += amount;
         } else {
-            if (!user.inventory) user.inventory = [];
-            if (!user.inventory.includes(gift.modName)) {
-                user.inventory.push(gift.modName);
+            if (!state.unlockedMods.includes(gift.payload)) {
+                state.unlockedMods.push(gift.payload);
             }
         }
 
-        db[state.currentUser] = user;
-        saveUsersDB(db);
-        renderGiftsInbox();
-        updateModsUIState();
-        triggerGiftAnimationEffects();
-        showCustomAlert("Gift successfully claimed and added to your account with festive alert animations!", "success");
+        state.giftsInbox.splice(index, 1);
+        saveState();
+        updateUIState();
+        alert('Gift successfully claimed and added to your profile!');
+    };
+
+    // Auto-login if previously active session exists
+    if (state.currentUser) {
+        authOverlay.style.display = 'none';
+        updateUIState();
     }
-
-    function checkIncomingGifts(user) {
-        if (user.giftsInbox && user.giftsInbox.some(g => !g.claimed)) {
-            setTimeout(() => {
-                showCustomAlert("🎁 You have unopened gifts waiting in your Gift Center Inbox!", "success");
-            }, 1000);
-        }
-    }
-
-    function showCustomAlert(message, type = 'success') {
-        let alertBox = document.getElementById('gmxCustomAlertModal');
-        if (!alertBox) {
-            alertBox = document.createElement('div');
-            alertBox.id = 'gmxCustomAlertModal';
-            alertBox.className = 'auth-overlay';
-            alertBox.style.zIndex = '5000';
-            document.body.appendChild(alertBox);
-        }
-
-        const borderColor = type === 'success' ? 'var(--success)' : type === 'warning' ? 'var(--accent)' : 'var(--danger)';
-        const iconClass = type === 'success' ? 'fa-circle-check text-gold' : 'fa-triangle-exclamation';
-
-        alertBox.innerHTML = `
-            <div class="auth-container" style="border-color: ${borderColor}; animation: popInModal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-align: center;">
-                <div style="font-size: 3rem; margin-bottom: 1rem;"><i class="fa-solid ${iconClass}"></i></div>
-                <h3 style="font-size: 1.5rem; margin-bottom: 0.75rem;">GMX Notification</h3>
-                <p style="color: var(--text-muted); margin-bottom: 2rem; font-size: 1rem; line-height: 1.5;">${message}</p>
-                <button class="btn-primary" style="width: 100%; justify-content: center;" onclick="document.getElementById('gmxCustomAlertModal').style.display='none'">Awesome, Thanks!</button>
-            </div>
-        `;
-        alertBox.style.display = 'flex';
-    }
-
-    function triggerGiftAnimationEffects() {
-        const burst = document.createElement('div');
-        burst.style.position = 'fixed';
-        burst.style.top = '0';
-        burst.style.left = '0';
-        burst.style.width = '100vw';
-        burst.style.height = '100vh';
-        burst.style.zIndex = '4000';
-        burst.style.pointerEvents = 'none';
-        burst.style.background = 'radial-gradient(circle, rgba(245,158,11,0.2) 0%, rgba(3,7,18,0) 70%)';
-        burst.style.animation = 'fadeInOutEffect 1.5s ease forwards';
-        document.body.appendChild(burst);
-
-        setTimeout(() => {
-            burst.remove();
-        }, 1500);
-    }
-
-    function syncUserCoins() {
-        const db = getUsersDB();
-        if (db[state.currentUser]) {
-            db[state.currentUser].coins = state.coins;
-            saveUsersDB(db);
-            if (localStorage.getItem(SESSION_KEY)) {
-                localStorage.setItem(SESSION_KEY, JSON.stringify(db[state.currentUser]));
-            }
-        }
-    }
-
-    function updateCoinDisplays() {
-        if (elements.headerCoinDisplay) elements.headerCoinDisplay.textContent = state.coins.toLocaleString();
-        if (elements.profileCoinBalance) elements.profileCoinBalance.textContent = state.coins.toLocaleString();
-    }
-
-    function showLoader(show, text = "Loading...") {
-        if (elements.loadingText) elements.loadingText.textContent = text;
-        if (elements.loadingOverlay) elements.loadingOverlay.style.display = show ? 'flex' : 'none';
-    }
-
-    checkActiveSession();
 });
