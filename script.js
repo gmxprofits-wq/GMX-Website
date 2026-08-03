@@ -1,12 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- SUPABASE CONFIGURATION ---
+    const SUPABASE_URL = 'https://saeojoacbllpzsxqbpjz.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_4KA5ry9Li5juC0OCVqoDYQ_n1sEDf93';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
     const defaultState = {
         currentUser: null,
         users: [],
         coins: 1250,
         unlockedMods: [],
         lastSpinTime: 0,
-        lastDailyClaim: 0,
-        giftsInbox: []
+        lastDailyClaim: 0
     };
 
     let state = JSON.parse(localStorage.getItem('gmx_state')) || defaultState;
@@ -105,6 +109,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (activeView) activeView.classList.add('active');
 
             pageTitleHeading.textContent = item.textContent.trim();
+
+            // Refresh cloud inbox if navigating to gift center
+            if (pageId === 'gifts') {
+                renderGiftsInbox();
+            }
         });
     });
 
@@ -197,69 +206,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateModWidgetStates() {
-        // GMX AutoAnchor
-        const footerAnchor = document.getElementById('mod-action-GMX-AutoAnchor');
-        if (footerAnchor) {
-            if (state.unlockedMods.includes('GMX AutoAnchor')) {
-                footerAnchor.innerHTML = `
-                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
-                    <button class="btn-download" onclick="downloadModFile('GMXAutoAnchor v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
-                `;
-            } else {
-                footerAnchor.innerHTML = `
-                    <span class="mod-price text-gold">300 Coins</span>
-                    <button class="btn-buy" onclick="purchaseMod(300, 'GMX AutoAnchor')">Unlock</button>
-                `;
-            }
-        }
+        const mods = [
+            { id: 'mod-action-GMX-AutoAnchor', name: 'GMX AutoAnchor', file: 'GMXAutoAnchor v1.jar', cost: 300 },
+            { id: 'mod-action-GMX-Crystal-Optimizer', name: 'GMX Crystal Optimizer', file: 'GMXCrystalOptimizer v1.jar', cost: 300 },
+            { id: 'mod-action-GMX-Auto-Axe', name: 'GMX Auto Axe', file: 'GMXAutoAxe v1.jar', cost: 300 },
+            { id: 'mod-action-GMX-Smart-Totem', name: 'GMX Smart Totem', file: 'GmxSmartTotemClient.jar', cost: 250 }
+        ];
 
-        // GMX Crystal Optimizer
-        const footerCrystal = document.getElementById('mod-action-GMX-Crystal-Optimizer');
-        if (footerCrystal) {
-            if (state.unlockedMods.includes('GMX Crystal Optimizer')) {
-                footerCrystal.innerHTML = `
-                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
-                    <button class="btn-download" onclick="downloadModFile('GMXCrystalOptimizer v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
-                `;
-            } else {
-                footerCrystal.innerHTML = `
-                    <span class="mod-price text-gold">300 Coins</span>
-                    <button class="btn-buy" onclick="purchaseMod(300, 'GMX Crystal Optimizer')">Unlock</button>
-                `;
+        mods.forEach(m => {
+            const footer = document.getElementById(m.id);
+            if (footer) {
+                if (state.unlockedMods.includes(m.name)) {
+                    footer.innerHTML = `
+                        <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
+                        <button class="btn-download" onclick="downloadModFile('${m.file}')"><i class="fa-solid fa-download"></i> Download</button>
+                    `;
+                } else {
+                    footer.innerHTML = `
+                        <span class="mod-price text-gold">${m.cost} Coins</span>
+                        <button class="btn-buy" onclick="purchaseMod(${m.cost}, '${m.name}')">Unlock</button>
+                    `;
+                }
             }
-        }
-
-        // GMX Auto Axe
-        const footerAxe = document.getElementById('mod-action-GMX-Auto-Axe');
-        if (footerAxe) {
-            if (state.unlockedMods.includes('GMX Auto Axe')) {
-                footerAxe.innerHTML = `
-                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
-                    <button class="btn-download" onclick="downloadModFile('GMXAutoAxe v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
-                `;
-            } else {
-                footerAxe.innerHTML = `
-                    <span class="mod-price text-gold">300 Coins</span>
-                    <button class="btn-buy" onclick="purchaseMod(300, 'GMX Auto Axe')">Unlock</button>
-                `;
-            }
-        }
-
-        // GMX Smart Totem
-        const footerTotem = document.getElementById('mod-action-GMX-Smart-Totem');
-        if (footerTotem) {
-            if (state.unlockedMods.includes('GMX Smart Totem')) {
-                footerTotem.innerHTML = `
-                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
-                    <button class="btn-download" onclick="downloadModFile('GmxSmartTotemClient.jar')"><i class="fa-solid fa-download"></i> Download</button>
-                `;
-            } else {
-                footerTotem.innerHTML = `
-                    <span class="mod-price text-gold">250 Coins</span>
-                    <button class="btn-buy" onclick="purchaseMod(250, 'GMX Smart Totem')">Unlock</button>
-                `;
-            }
-        }
+        });
     }
 
     window.purchaseMod = function(cost, modName) {
@@ -352,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showGmxAlert('Daily Stipend Claimed', 'Successfully claimed your +500 daily coins reward!', 'success');
     });
 
-    // Gift center
+    // Gift center UI toggle
     const giftTypeSelect = document.getElementById('giftType');
     giftTypeSelect.addEventListener('change', () => {
         if (giftTypeSelect.value === 'coins') {
@@ -364,7 +333,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('giftForm').addEventListener('submit', (e) => {
+    // --- SUPABASE CLOUD GIFT SENDING ---
+    document.getElementById('giftForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const recipient = document.getElementById('giftRecipient').value.trim();
         const type = giftTypeSelect.value;
@@ -383,60 +353,84 @@ document.addEventListener('DOMContentLoaded', () => {
             payload = document.getElementById('giftModSelect').value;
         }
 
-        state.giftsInbox.push({
-            id: Date.now(),
-            sender: state.currentUser || 'Operator',
-            recipient: recipient,
-            type: type,
-            payload: payload,
-            message: message
-        });
+        // Push directly to the Supabase Cloud database
+        const { error } = await supabase
+            .from('gifts')
+            .insert([
+                {
+                    sender_username: state.currentUser || 'Operator',
+                    recipient_username: recipient,
+                    item_name: `${payload} | Message: ${message}`
+                }
+            ]);
+
+        if (error) {
+            console.error('Supabase error:', error);
+            showGmxAlert('Error', 'Failed to dispatch gift across the cloud network.', 'error');
+            return;
+        }
+
         saveState();
         updateUIState();
         document.getElementById('giftForm').reset();
-        showGmxAlert('Gift Dispatched', `Gift successfully dispatched to operator ${recipient}!`, 'success');
+        showGmxAlert('Gift Dispatched', `Gift successfully sent across the cloud to operator ${recipient}!`, 'success');
     });
 
-    function renderGiftsInbox() {
+    // --- SUPABASE CLOUD GIFTS INBOX FETCHER ---
+    async function renderGiftsInbox() {
         const user = state.currentUser || 'Operator';
-        const userGifts = state.giftsInbox.filter(g => g.recipient.toLowerCase() === user.toLowerCase());
         const inboxList = document.getElementById('giftsInboxList');
 
-        if (userGifts.length === 0) {
+        const { data: gifts, error } = await supabase
+            .from('gifts')
+            .select('*')
+            .ilike('recipient_username', user)
+            .order('created_at', { ascending: false });
+
+        if (error || !gifts || gifts.length === 0) {
             inboxList.innerHTML = '<p class="text-muted" style="text-align:center; padding: 2rem;">No incoming gifts found in your inbox.</p>';
             return;
         }
 
         let html = '';
-        userGifts.forEach(g => {
+        gifts.forEach(g => {
             html += `
                 <div style="background: var(--bg-deep); border: 1px solid var(--border); padding: 1rem; border-radius: 10px; margin-bottom: 1rem;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <strong style="color: var(--accent);"><i class="fa-solid fa-user"></i> ${g.sender}</strong>
-                        <span class="mod-version-tag" style="position:static;">${g.payload}</span>
+                        <strong style="color: var(--accent);"><i class="fa-solid fa-user"></i> ${g.sender_username}</strong>
+                        <span class="mod-version-tag" style="position:static;">Cloud Gift</span>
                     </div>
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">"${g.message}"</p>
-                    <button class="btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="claimGift(${g.id})">Claim Gift</button>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">${g.item_name}</p>
+                    <button class="btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="claimCloudGift(${g.id}, '${g.item_name}')">Claim Gift</button>
                 </div>
             `;
         });
         inboxList.innerHTML = html;
     }
 
-    window.claimGift = function(giftId) {
-        const idx = state.giftsInbox.findIndex(g => g.id === giftId);
-        if (idx === -1) return;
-        const g = state.giftsInbox[idx];
+    // --- SUPABASE CLOUD GIFT CLAIM HANDLER ---
+    window.claimCloudGift = async function(giftId, itemName) {
+        const { error } = await supabase
+            .from('gifts')
+            .delete()
+            .eq('id', giftId);
 
-        if (g.type === 'coins') {
-            state.coins += parseInt(g.payload);
-        } else {
-            if (!state.unlockedMods.includes(g.payload)) state.unlockedMods.push(g.payload);
+        if (error) {
+            showGmxAlert('Error', 'Could not claim gift from cloud database.', 'error');
+            return;
         }
-        state.giftsInbox.splice(idx, 1);
+
+        if (itemName.includes('GMX Coins')) {
+            const matches = itemName.match(/(\d+)/);
+            if (matches) state.coins += parseInt(matches[1]);
+        } else {
+            const modName = itemName.split(' | ')[0];
+            if (!state.unlockedMods.includes(modName)) state.unlockedMods.push(modName);
+        }
+
         saveState();
         updateUIState();
-        showGmxAlert('Gift Claimed', 'Gift successfully claimed and added to your profile!', 'success');
+        showGmxAlert('Gift Claimed', 'Cloud gift successfully claimed and added to your profile!', 'success');
     };
 
     if (state.currentUser) {
