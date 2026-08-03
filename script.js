@@ -1,204 +1,448 @@
-// GMX Ecosystem JavaScript Core & Functionality
-
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize application states
-    initAuthTabs();
-    initModStore();
-    initDailyWheel();
-    initNavigation();
-});
+    const defaultState = {
+        currentUser: null,
+        users: [],
+        coins: 1250,
+        unlockedMods: [],
+        lastSpinTime: 0,
+        lastDailyClaim: 0,
+        giftsInbox: []
+    };
 
-// Authentication System
-function initAuthTabs() {
-    const tabs = document.querySelectorAll('.auth-tab');
-    const forms = document.querySelectorAll('.auth-form');
+    let state = JSON.parse(localStorage.getItem('gmx_state')) || defaultState;
 
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const targetFormId = tab.getAttribute('data-target');
-            
-            tabs.forEach(t => t.classList.remove('active'));
-            forms.forEach(f => f.classList.remove('active'));
-            
-            tab.classList.add('active');
-            const targetForm = document.getElementById(targetFormId);
-            if (targetForm) targetForm.classList.add('active');
-        });
-    });
-}
-
-// Custom Modal Notification System
-function showGmxModal(title, message, type = 'info') {
-    let overlay = document.getElementById('gmxModalOverlay');
-    
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'gmxModalOverlay';
-        overlay.innerHTML = `
-            <div class="gmx-modal-card">
-                <div class="gmx-modal-icon" id="gmxModalIcon"></div>
-                <h3 id="gmxModalTitle"></h3>
-                <p id="gmxModalMessage"></p>
-                <button class="btn-primary" onclick="closeGmxModal()" style="width: 100%; justify-content: center;">OK</button>
-            </div>
-        `;
-        document.body.appendChild(overlay);
+    function saveState() {
+        localStorage.setItem('gmx_state', JSON.stringify(state));
     }
 
-    const iconEl = document.getElementById('gmxModalIcon');
-    const titleEl = document.getElementById('gmxModalTitle');
-    const messageEl = document.getElementById('gmxModalMessage');
+    function showGmxAlert(title, message, type = 'success', callback = null) {
+        const overlay = document.getElementById('gmxModalOverlay');
+        const iconDiv = document.getElementById('gmxModalIcon');
+        const titleEl = document.getElementById('gmxModalTitle');
+        const msgEl = document.getElementById('gmxModalMessage');
+        const btnEl = document.getElementById('gmxModalBtn');
 
-    titleEl.textContent = title;
-    messageEl.textContent = message;
-    
-    iconEl.className = `gmx-modal-icon ${type}`;
-    if (type === 'success') iconEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
-    else if (type === 'error') iconEl.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i>';
-    else iconEl.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
-
-    overlay.style.display = 'flex';
-}
-
-function closeGmxModal() {
-    const overlay = document.getElementById('gmxModalOverlay');
-    if (overlay) overlay.style.display = 'none';
-}
-
-// Simulated Mod Store & Dynamic Mod Upload Interactions
-function initModStore() {
-    // Bind purchase actions to existing buy buttons
-    bindBuyButtons();
-
-    // Handle dynamic mod uploads and appending them to the store grid
-    const uploadForm = document.getElementById('uploadModForm');
-    if (uploadForm) {
-        uploadForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const titleInput = document.getElementById('modTitleInput');
-            const descInput = document.getElementById('modDescInput');
-            const priceInput = document.getElementById('modPriceInput');
-            const versionInput = document.getElementById('modVersionInput');
-            const categoryInput = document.getElementById('modCategoryInput');
-
-            if (!titleInput || !descInput || !priceInput) return;
-
-            const modTitle = titleInput.value.trim();
-            const modDesc = descInput.value.trim();
-            const modPrice = priceInput.value.trim();
-            const modVersion = versionInput ? versionInput.value.trim() : 'v1.0';
-            const modCategory = categoryInput ? categoryInput.value.trim() : 'Utility';
-
-            addNewModCard({
-                title: modTitle,
-                description: modDesc,
-                price: modPrice,
-                version: modVersion,
-                category: modCategory
-            });
-
-            uploadForm.reset();
-            showGmxModal('Mod Uploaded', `Successfully uploaded "${modTitle}" to the GMX ecosystem store grid!`, 'success');
-        });
-    }
-}
-
-function bindBuyButtons() {
-    const buyButtons = document.querySelectorAll('.btn-buy');
-    
-    buyButtons.forEach(btn => {
-        // Prevent duplicate event bindings
-        if (btn.getAttribute('data-bound') === 'true') return;
-        btn.setAttribute('data-bound', 'true');
-
-        btn.addEventListener('click', (e) => {
-            const modCard = e.target.closest('.mod-card');
-            const modName = modCard ? modCard.querySelector('h3').textContent : 'Item';
-            showGmxModal('Purchase Confirmed', `You have successfully unlocked access to ${modName} within the GMX ecosystem.`, 'success');
-        });
-    });
-}
-
-function addNewModCard(modData) {
-    const modsGrid = document.querySelector('.mods-grid');
-    if (!modsGrid) return;
-
-    const card = document.createElement('div');
-    card.className = 'mod-card';
-    card.innerHTML = `
-        <div class="mod-img-wrap">
-            <i class="fa-solid fa-cube"></i>
-            <span class="mod-version-tag">${escapeHtml(modData.version)}</span>
-        </div>
-        <div class="mod-card-body">
-            <div class="mod-tags">
-                <span class="mod-tag tag-pvp">${escapeHtml(modData.category)}</span>
-            </div>
-            <h3>${escapeHtml(modData.title)}</h3>
-            <p>${escapeHtml(modData.description)}</p>
-            <div class="mod-card-footer">
-                <span class="mod-price text-gold">${escapeHtml(modData.price)}</span>
-                <button class="btn-buy"><i class="fa-solid fa-cart-shopping"></i> Buy</button>
-            </div>
-        </div>
-    `;
-
-    modsGrid.prepend(card);
-    bindBuyButtons(); // Re-bind buttons to include the newly injected card
-}
-
-// Daily Spin Wheel Logic
-let isSpinning = false;
-function initDailyWheel() {
-    const spinBtn = document.getElementById('spinWheelBtn');
-    if (!spinBtn) return;
-
-    spinBtn.addEventListener('click', () => {
-        if (isSpinning) return;
-        isSpinning = true;
-
-        const wheel = document.querySelector('.wheel');
-        const randomDegree = Math.floor(Math.random() * 3600) + 720; // Multiple full rotations + random offset
-        
-        if (wheel) {
-            wheel.style.transform = `rotate(${randomDegree}deg)`;
+        if (!overlay) {
+            alert(`${title}: ${message}`);
+            if (callback) callback();
+            return;
         }
 
-        setTimeout(() => {
-            isSpinning = false;
-            showGmxModal('Reward Claimed!', 'Your daily spin reward has been credited to your GMX balance.', 'success');
-        }, 4000); // Matches CSS transition duration
-    });
-}
+        titleEl.textContent = title;
+        msgEl.textContent = message;
 
-// Navigation View Switcher
-function initNavigation() {
+        iconDiv.className = 'gmx-modal-icon';
+        if (type === 'success') {
+            iconDiv.classList.add('success');
+            iconDiv.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+        } else if (type === 'error') {
+            iconDiv.classList.add('error');
+            iconDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i>';
+        } else {
+            iconDiv.classList.add('info');
+            iconDiv.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+        }
+
+        overlay.style.display = 'flex';
+
+        const newBtn = btnEl.cloneNode(true);
+        btnEl.parentNode.replaceChild(newBtn, btnEl);
+
+        newBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+            if (callback) callback();
+        });
+    }
+
+    const authOverlay = document.getElementById('authOverlay');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const loginFormContainer = document.getElementById('loginFormContainer');
+    const registerFormContainer = document.getElementById('registerFormContainer');
+    
+    const loginForm = document.getElementById('loginFormContainer');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
     const navItems = document.querySelectorAll('.nav-item');
     const pageViews = document.querySelectorAll('.page-view');
+    const pageTitleHeading = document.getElementById('pageTitleHeading');
+    
+    const headerCoinDisplay = document.getElementById('headerCoinDisplay');
+    const headerUsernameDisplay = document.getElementById('headerUsernameDisplay');
+    const headerUserAvatar = document.getElementById('headerUserAvatar');
+    const dashUsername = document.getElementById('dashUsername');
+    
+    const profileUsername = document.getElementById('profileUsername');
+    const profileEmail = document.getElementById('profileEmail');
+    const profileCoinBalance = document.getElementById('profileCoinBalance');
+
+    authTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            authTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const target = tab.getAttribute('data-auth-target');
+            if (target === 'login') {
+                loginFormContainer.classList.add('active');
+                registerFormContainer.classList.remove('active');
+            } else {
+                registerFormContainer.classList.add('active');
+                loginFormContainer.classList.remove('active');
+            }
+        });
+    });
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
-            const targetViewId = item.getAttribute('data-view');
-            if (!targetViewId) return;
-
             e.preventDefault();
-
+            const pageId = item.getAttribute('data-page');
+            
             navItems.forEach(nav => nav.classList.remove('active'));
-            pageViews.forEach(view => view.classList.remove('active'));
-
             item.classList.add('active');
-            const targetView = document.getElementById(targetViewId);
-            if (targetView) targetView.classList.add('active');
+
+            pageViews.forEach(view => view.classList.remove('active'));
+            const activeView = document.getElementById(`${pageId}-view`);
+            if (activeView) activeView.classList.add('active');
+
+            pageTitleHeading.textContent = item.textContent.trim();
         });
     });
-}
 
-// Utility Security Helper
-function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;")
-              .replace(/</g, "&lt;")
-              .replace(/>/g, "&gt;")
-              .replace(/"/g, "&quot;")
-              .replace(/'/g, "&#039;");
-}
+    const regFormEl = document.getElementById('registerFormContainer');
+    regFormEl.id = 'registerFormElement';
+    regFormEl.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('regEmail').value.trim();
+        const username = document.getElementById('regUsername').value.trim();
+        const password = document.getElementById('regPassword').value;
+        const alertBox = document.getElementById('registerAlert');
+        const successBox = document.getElementById('registerSuccess');
+
+        alertBox.style.display = 'none';
+        successBox.style.display = 'none';
+
+        if (state.users.some(u => u.username === username)) {
+            alertBox.textContent = 'Username is already taken on the GMX network.';
+            alertBox.style.display = 'block';
+            return;
+        }
+
+        state.users.push({ email, username, password });
+        saveState();
+
+        successBox.textContent = 'Account successfully initialized! You can now log in.';
+        successBox.style.display = 'block';
+        regFormEl.reset();
+
+        setTimeout(() => {
+            document.querySelector('[data-auth-target="login"]').click();
+            successBox.style.display = 'none';
+        }, 1500);
+    });
+
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const alertBox = document.getElementById('loginAlert');
+
+        alertBox.style.display = 'none';
+        const foundUser = state.users.find(u => u.username === username && u.password === password);
+        
+        if (foundUser || username === 'Operator') {
+            triggerLoadingSequence('Authenticating Fabric 1.21.11 Session...', () => {
+                state.currentUser = username;
+                saveState();
+                updateUIState();
+                authOverlay.style.display = 'none';
+            });
+        } else {
+            alertBox.textContent = 'Invalid credentials or unregistered operator username.';
+            alertBox.style.display = 'block';
+        }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        triggerLoadingSequence('Terminating Secure Session...', () => {
+            state.currentUser = null;
+            saveState();
+            authOverlay.style.display = 'flex';
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+        });
+    });
+
+    function triggerLoadingSequence(text, callback) {
+        loadingText.textContent = text;
+        loadingOverlay.style.display = 'flex';
+        setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+            if (callback) callback();
+        }, 800);
+    }
+
+    function updateUIState() {
+        const user = state.currentUser || 'Operator';
+        headerUsernameDisplay.textContent = user;
+        dashUsername.textContent = user;
+        profileUsername.textContent = user;
+        profileEmail.textContent = `${user.toLowerCase()}@gmx.empire`;
+        headerUserAvatar.textContent = user.substring(0, 2).toUpperCase();
+        
+        headerCoinDisplay.textContent = state.coins.toLocaleString();
+        profileCoinBalance.textContent = state.coins.toLocaleString();
+        
+        renderGiftsInbox();
+        updateModWidgetStates();
+    }
+
+    function updateModWidgetStates() {
+        // GMX AutoAnchor
+        const footerAnchor = document.getElementById('mod-action-GMX-AutoAnchor');
+        if (footerAnchor) {
+            if (state.unlockedMods.includes('GMX AutoAnchor')) {
+                footerAnchor.innerHTML = `
+                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
+                    <button class="btn-download" onclick="downloadModFile('GMXAutoAnchor v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
+                `;
+            } else {
+                footerAnchor.innerHTML = `
+                    <span class="mod-price text-gold">300 Coins</span>
+                    <button class="btn-buy" onclick="purchaseMod(300, 'GMX AutoAnchor')">Unlock</button>
+                `;
+            }
+        }
+
+        // GMX Crystal Optimizer
+        const footerCrystal = document.getElementById('mod-action-GMX-Crystal-Optimizer');
+        if (footerCrystal) {
+            if (state.unlockedMods.includes('GMX Crystal Optimizer')) {
+                footerCrystal.innerHTML = `
+                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
+                    <button class="btn-download" onclick="downloadModFile('GMXCrystalOptimizer v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
+                `;
+            } else {
+                footerCrystal.innerHTML = `
+                    <span class="mod-price text-gold">300 Coins</span>
+                    <button class="btn-buy" onclick="purchaseMod(300, 'GMX Crystal Optimizer')">Unlock</button>
+                `;
+            }
+        }
+
+        // GMX Auto Axe
+        const footerAxe = document.getElementById('mod-action-GMX-Auto-Axe');
+        if (footerAxe) {
+            if (state.unlockedMods.includes('GMX Auto Axe')) {
+                footerAxe.innerHTML = `
+                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
+                    <button class="btn-download" onclick="downloadModFile('GMXAutoAxe v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
+                `;
+            } else {
+                footerAxe.innerHTML = `
+                    <span class="mod-price text-gold">300 Coins</span>
+                    <button class="btn-buy" onclick="purchaseMod(300, 'GMX Auto Axe')">Unlock</button>
+                `;
+            }
+        }
+
+        // GMX Smart Totem
+        const footerTotem = document.getElementById('mod-action-GMX-Smart-Totem');
+        if (footerTotem) {
+            if (state.unlockedMods.includes('GMX Smart Totem')) {
+                footerTotem.innerHTML = `
+                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
+                    <button class="btn-download" onclick="downloadModFile('GmxSmartTotemClient.jar')"><i class="fa-solid fa-download"></i> Download</button>
+                `;
+            } else {
+                footerTotem.innerHTML = `
+                    <span class="mod-price text-gold">250 Coins</span>
+                    <button class="btn-buy" onclick="purchaseMod(250, 'GMX Smart Totem')">Unlock</button>
+                `;
+            }
+        }
+    }
+
+    window.purchaseMod = function(cost, modName) {
+        if (state.coins < cost) {
+            showGmxAlert('Insufficient Funds', 'You do not have enough GMX coins to unlock this mod!', 'error');
+            return;
+        }
+        state.coins -= cost;
+        state.unlockedMods.push(modName);
+        saveState();
+        updateUIState();
+        showGmxAlert('Mod Unlocked', `Successfully unlocked ${modName}! You can now download the exact mod jar file.`, 'success');
+    };
+
+    window.downloadModFile = function(fileName) {
+        let fileContent = "META-INF/MANIFEST.MF Zt|a#~H |vd{e LICENSE_4ddb76de}T EAwVn qU'M ZdOSN d;ln- dj=/ 9xK9";
+        if (fileName === 'GmxSmartTotemClient.jar') {
+            fileContent = "META-INF/MANIFEST.MF qR|^# LICENSE_5fb0ab24}T .__l]! D`%w k2To /bf~ q!VR 6!a\\u META-INF/ com/ com/orcaengine/ com/orcaengine/gmxsmarttotem/ com/orcaengine/gmxsmarttotem/GmxSmartTotemClient.class fabric.mod.json";
+        }
+
+        const blob = new Blob([fileContent], { type: 'application/java-archive' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showGmxAlert('Download Started', `Downloading official mod file ${fileName}.`, 'success');
+    };
+
+    // Wheel mechanics
+    const spinWheelBtn = document.getElementById('spinWheelBtn');
+    const spinWheelElement = document.getElementById('spinWheelElement');
+    const wheelTimerDisplay = document.getElementById('wheelTimerDisplay');
+
+    function checkSpinCooldown() {
+        const now = Date.now();
+        const cooldown = 24 * 60 * 60 * 1000;
+        const elapsed = now - state.lastSpinTime;
+
+        if (elapsed < cooldown) {
+            const remaining = cooldown - elapsed;
+            const h = Math.floor(remaining / (1000 * 60 * 60));
+            const m = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+            spinWheelBtn.disabled = true;
+            wheelTimerDisplay.textContent = `Next spin in: ${h}h ${m}m`;
+            return false;
+        } else {
+            spinWheelBtn.disabled = false;
+            wheelTimerDisplay.textContent = 'Wheel Ready to Spin!';
+            return true;
+        }
+    }
+    setInterval(checkSpinCooldown, 60000);
+    checkSpinCooldown();
+
+    spinWheelBtn.addEventListener('click', () => {
+        if (!checkSpinCooldown()) return;
+        spinWheelBtn.disabled = true;
+        const randDeg = Math.floor(1800 + Math.random() * 1800);
+        spinWheelElement.style.transform = `rotate(${randDeg}deg)`;
+
+        setTimeout(() => {
+            const prizes = [100, 250, 500, 50, 1000, 200];
+            const prize = prizes[Math.floor(Math.random() * prizes.length)];
+            state.coins += prize;
+            state.lastSpinTime = Date.now();
+            saveState();
+            updateUIState();
+            showGmxAlert('Wheel Reward Won!', `🎉 Congratulations! You won ${prize} GMX coins from the wheel!`, 'success');
+            checkSpinCooldown();
+        }, 4000);
+    });
+
+    // Daily reward
+    document.getElementById('claimDailyBtn').addEventListener('click', () => {
+        const now = Date.now();
+        const cooldown = 24 * 60 * 60 * 1000;
+        if (now - state.lastDailyClaim < cooldown) {
+            showGmxAlert('Already Claimed', 'Daily login stipend already claimed within the last 24 hours!', 'error');
+            return;
+        }
+        state.coins += 500;
+        state.lastDailyClaim = now;
+        saveState();
+        updateUIState();
+        showGmxAlert('Daily Stipend Claimed', 'Successfully claimed your +500 daily coins reward!', 'success');
+    });
+
+    // Gift center
+    const giftTypeSelect = document.getElementById('giftType');
+    giftTypeSelect.addEventListener('change', () => {
+        if (giftTypeSelect.value === 'coins') {
+            document.getElementById('giftCoinAmountContainer').style.display = 'block';
+            document.getElementById('giftItemSelectContainer').style.display = 'none';
+        } else {
+            document.getElementById('giftCoinAmountContainer').style.display = 'none';
+            document.getElementById('giftItemSelectContainer').style.display = 'block';
+        }
+    });
+
+    document.getElementById('giftForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const recipient = document.getElementById('giftRecipient').value.trim();
+        const type = giftTypeSelect.value;
+        const message = document.getElementById('giftMessage').value.trim() || 'Enjoy your gift!';
+        
+        let payload = '';
+        if (type === 'coins') {
+            const amt = parseInt(document.getElementById('giftCoinsInput').value);
+            if (state.coins < amt) {
+                showGmxAlert('Insufficient Funds', 'You do not have enough coins to send this gift.', 'error');
+                return;
+            }
+            state.coins -= amt;
+            payload = `${amt} GMX Coins`;
+        } else {
+            payload = document.getElementById('giftModSelect').value;
+        }
+
+        state.giftsInbox.push({
+            id: Date.now(),
+            sender: state.currentUser || 'Operator',
+            recipient: recipient,
+            type: type,
+            payload: payload,
+            message: message
+        });
+        saveState();
+        updateUIState();
+        document.getElementById('giftForm').reset();
+        showGmxAlert('Gift Dispatched', `Gift successfully dispatched to operator ${recipient}!`, 'success');
+    });
+
+    function renderGiftsInbox() {
+        const user = state.currentUser || 'Operator';
+        const userGifts = state.giftsInbox.filter(g => g.recipient.toLowerCase() === user.toLowerCase());
+        const inboxList = document.getElementById('giftsInboxList');
+
+        if (userGifts.length === 0) {
+            inboxList.innerHTML = '<p class="text-muted" style="text-align:center; padding: 2rem;">No incoming gifts found in your inbox.</p>';
+            return;
+        }
+
+        let html = '';
+        userGifts.forEach(g => {
+            html += `
+                <div style="background: var(--bg-deep); border: 1px solid var(--border); padding: 1rem; border-radius: 10px; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <strong style="color: var(--accent);"><i class="fa-solid fa-user"></i> ${g.sender}</strong>
+                        <span class="mod-version-tag" style="position:static;">${g.payload}</span>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">"${g.message}"</p>
+                    <button class="btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="claimGift(${g.id})">Claim Gift</button>
+                </div>
+            `;
+        });
+        inboxList.innerHTML = html;
+    }
+
+    window.claimGift = function(giftId) {
+        const idx = state.giftsInbox.findIndex(g => g.id === giftId);
+        if (idx === -1) return;
+        const g = state.giftsInbox[idx];
+
+        if (g.type === 'coins') {
+            state.coins += parseInt(g.payload);
+        } else {
+            if (!state.unlockedMods.includes(g.payload)) state.unlockedMods.push(g.payload);
+        }
+        state.giftsInbox.splice(idx, 1);
+        saveState();
+        updateUIState();
+        showGmxAlert('Gift Claimed', 'Gift successfully claimed and added to your profile!', 'success');
+    };
+
+    if (state.currentUser) {
+        authOverlay.style.display = 'none';
+        updateUIState();
+    } else {
+        updateModWidgetStates();
+    }
+});

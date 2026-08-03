@@ -99,7 +99,6 @@ body {
     font-size: 1.5rem;
     font-weight: 800;
     margin-bottom: 0.25rem;
-    text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
 }
 
 .auth-container p {
@@ -216,13 +215,11 @@ body {
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid var(--error);
     color: var(--error);
-    box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
 }
 .auth-success-alert {
     background: rgba(16, 185, 129, 0.1);
     border: 1px solid var(--success);
     color: var(--success);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
 }
 
 /* Loading Overlay */
@@ -256,7 +253,7 @@ body {
     100% { transform: rotate(360deg); }
 }
 
-/* Custom Beautiful Alert Modal */
+/* Custom Modal */
 #gmxModalOverlay {
     position: fixed;
     top: 0;
@@ -291,7 +288,6 @@ body {
 .gmx-modal-icon {
     font-size: 3rem;
     margin-bottom: 1rem;
-    filter: drop-shadow(0 0 10px currentColor);
 }
 .gmx-modal-icon.success { color: var(--success); }
 .gmx-modal-icon.error { color: var(--error); }
@@ -350,7 +346,6 @@ aside {
     font-size: 1.15rem;
     font-weight: 800;
     letter-spacing: 0.5px;
-    text-shadow: 0 0 10px rgba(255,255,255,0.1);
 }
 
 .nav-links {
@@ -477,7 +472,6 @@ header {
     border-color: var(--error);
     color: var(--error);
     background: rgba(239, 68, 68, 0.05);
-    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
 }
 
 .content-body {
@@ -499,7 +493,7 @@ header {
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 2rem;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 15px rgba(255,255,255,0.01);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     transition: var(--transition);
 }
 .interactive-panel:hover {
@@ -557,7 +551,6 @@ header {
     font-size: 0.75rem;
     font-weight: 700;
     border: 1px solid rgba(255, 30, 56, 0.3);
-    box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .mod-card-body {
@@ -667,7 +660,6 @@ header {
     border-right: 12px solid transparent;
     border-top: 24px solid var(--accent);
     z-index: 10;
-    filter: drop-shadow(0 0 8px var(--accent));
 }
 
 .wheel {
