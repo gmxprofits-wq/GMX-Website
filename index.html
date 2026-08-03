@@ -722,7 +722,7 @@
     <div id="authOverlay" class="auth-overlay">
         <div class="auth-container">
             <div class="auth-logo"><i class="fa-solid fa-cube"></i></div>
-            <h2>GMX Ecosystem</h2>
+            <h2>GMX Client</h2>
             <p>Fabric 1.21.11 Secure Access Gateway</p>
 
             <div class="auth-tabs">
@@ -789,7 +789,7 @@
         <aside>
             <div class="brand-box">
                 <i class="fa-solid fa-cube"></i>
-                <h1>GMX CORE</h1>
+                <h1>GMX CLIENT</h1>
             </div>
             <ul class="nav-links">
                 <li><a href="#" class="nav-item active" data-page="dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
@@ -831,7 +831,8 @@
                 <!-- MODS VIEW -->
                 <div id="mods-view" class="page-view">
                     <div class="mods-grid">
-                        <div class="mod-card" data-mod-name="GMX Auto Axe">
+                        <!-- GMX Auto Axe -->
+                        <div class="mod-card">
                             <div class="mod-img-wrap">
                                 <i class="fa-solid fa-axe"></i>
                                 <span class="mod-version-tag">v1.21.11</span>
@@ -840,9 +841,26 @@
                                 <div class="mod-tags"><span class="mod-tag tag-pvp">PvP Utility</span></div>
                                 <h3>GMX Auto Axe</h3>
                                 <p>Lightning-fast automatic weapon and shield-breaking utility to optimize critical hits during close combat duels.</p>
-                                <div class="mod-card-footer" id="modActionContainer">
+                                <div class="mod-card-footer" id="mod-action-GMX-Auto-Axe">
                                     <span class="mod-price text-gold">500 Coins</span>
-                                    <button class="btn-buy" id="modPrimaryBtn" onclick="handleModAction('GMX Auto Axe', 500)">Unlock</button>
+                                    <button class="btn-buy" onclick="purchaseMod(500, 'GMX Auto Axe')">Unlock</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GMX Smart Totem -->
+                        <div class="mod-card">
+                            <div class="mod-img-wrap">
+                                <i class="fa-solid fa-shield-heart"></i>
+                                <span class="mod-version-tag">v1.21.11</span>
+                            </div>
+                            <div class="mod-card-body">
+                                <div class="mod-tags"><span class="mod-tag tag-pvp">Utility / Combat</span></div>
+                                <h3>GMX Smart Totem</h3>
+                                <p>GMX Smart Totem is a lightweight Fabric mod for Minecraft 1.21.11 that automatically refills your offhand with a Totem of Undying when it's empty or after a totem is used. Featuring customizable delays, a draggable HUD with a live totem counter, and smooth performance, it's designed to streamline inventory management while keeping gameplay responsive.</p>
+                                <div class="mod-card-footer" id="mod-action-GMX-Smart-Totem">
+                                    <span class="mod-price text-gold">250 Coins</span>
+                                    <button class="btn-buy" onclick="purchaseMod(250, 'GMX Smart Totem')">Unlock</button>
                                 </div>
                             </div>
                         </div>
@@ -909,6 +927,7 @@
                                     <label for="giftModSelect">Select Mod Item</label>
                                     <select id="giftModSelect" class="form-control">
                                         <option value="GMX Auto Axe">GMX Auto Axe</option>
+                                        <option value="GMX Smart Totem">GMX Smart Totem</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -1142,27 +1161,44 @@
                 profileCoinBalance.textContent = state.coins.toLocaleString();
                 
                 renderGiftsInbox();
-                updateModWidgetState();
+                updateModWidgetStates();
             }
 
-            function updateModWidgetState() {
-                const footer = document.getElementById('modActionContainer');
-                if (!footer) return;
+            function updateModWidgetStates() {
+                // GMX Auto Axe
+                const footerAxe = document.getElementById('mod-action-GMX-Auto-Axe');
+                if (footerAxe) {
+                    if (state.unlockedMods.includes('GMX Auto Axe')) {
+                        footerAxe.innerHTML = `
+                            <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
+                            <button class="btn-download" onclick="downloadModFile('GMXAutoAxe v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
+                        `;
+                    } else {
+                        footerAxe.innerHTML = `
+                            <span class="mod-price text-gold">500 Coins</span>
+                            <button class="btn-buy" onclick="purchaseMod(500, 'GMX Auto Axe')">Unlock</button>
+                        `;
+                    }
+                }
 
-                if (state.unlockedMods.includes('GMX Auto Axe')) {
-                    footer.innerHTML = `
-                        <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3); box-shadow: 0 0 8px rgba(16,185,129,0.3)">Unlocked</span>
-                        <button class="btn-download" onclick="downloadModFile()"><i class="fa-solid fa-download"></i> Download</button>
-                    `;
-                } else {
-                    footer.innerHTML = `
-                        <span class="mod-price text-gold">500 Coins</span>
-                        <button class="btn-buy" onclick="handleModAction('GMX Auto Axe', 500)">Unlock</button>
-                    `;
+                // GMX Smart Totem
+                const footerTotem = document.getElementById('mod-action-GMX-Smart-Totem');
+                if (footerTotem) {
+                    if (state.unlockedMods.includes('GMX Smart Totem')) {
+                        footerTotem.innerHTML = `
+                            <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Unlocked</span>
+                            <button class="btn-download" onclick="downloadModFile('GMXSmartTotem v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
+                        `;
+                    } else {
+                        footerTotem.innerHTML = `
+                            <span class="mod-price text-gold">250 Coins</span>
+                            <button class="btn-buy" onclick="purchaseMod(250, 'GMX Smart Totem')">Unlock</button>
+                        `;
+                    }
                 }
             }
 
-            window.handleModAction = function(modName, cost) {
+            window.purchaseMod = function(cost, modName) {
                 if (state.coins < cost) {
                     showGmxAlert('Insufficient Funds', 'You do not have enough GMX coins to unlock this mod!', 'error');
                     return;
@@ -1174,9 +1210,8 @@
                 showGmxAlert('Mod Unlocked', `Successfully unlocked ${modName}! You can now download the exact mod jar file.`, 'success');
             };
 
-            window.downloadModFile = function() {
-                const fileName = 'GMXAutoAxe v1.jar';
-                const fileContent = "META-INF/MANIFEST.MF Zt|a#~H |vd{e LICENSE_4ddb76de}T EAwVn qU'M ZdOSN d;ln- dj=/ 9xK9 META-INF/ com/ com/gmxautoaxe/ com/gmxautoaxe/GMXAutoAxeClient.class M:S:/-: X pV +efM=i^a Yk` i\` N1Rz_ ==`d :#W8pDT }f*A z#9$ nlPq ufeL I;Pc sKC`_r$ )dWQjt !7[BQ \nIZ #78H i2|:4 +*V- '=p41MLW1Q ]ngp Bz>W!D-G~H WIM%$eb *Q^= ETOFT plE5 fabric.mod.jsonUP qq's -gM5 META-INF/MANIFEST.MFPK LICENSE_4ddb76dePK META-INF/PK com/PK com/gmxautoaxe/PK com/gmxautoaxe/GMXAutoAxeClient.classPK fabric.mod.jsonPK";
+            window.downloadModFile = function(fileName) {
+                const fileContent = "META-INF/MANIFEST.MF Zt|a#~H |vd{e LICENSE_4ddb76de}T EAwVn qU'M ZdOSN d;ln- dj=/ 9xK9 META-INF/ com/ com/gmxmod/ com/gmxmod/GmxClient.class M:S:/-: X pV +efM=i^a Yk` i\\` N1Rz_ ==`d :#W8pDT }f*A z#9$ nlPq ufeL I;Pc sKC`_r$ )dWQjt !7[BQ \\nIZ #78H i2|:4 +*V- '=p41MLW1Q ]ngp Bz>W!D-G~H WIM%$eb *Q^= ETOFT plE5 fabric.mod.jsonUP qq's -gM5 META-INF/MANIFEST.MFPK LICENSE_4ddb76dePK META-INF/PK com/PK com/gmxmod/PK com/gmxmod/GmxClient.classPK fabric.mod.jsonPK";
 
                 const blob = new Blob([fileContent], { type: 'application/java-archive' });
                 const url = URL.createObjectURL(blob);
@@ -1188,7 +1223,7 @@
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
 
-                showGmxAlert('Download Started', `Downloading exact official mod file ${fileName}.`, 'success');
+                showGmxAlert('Download Started', `Downloading official mod file ${fileName}.`, 'success');
             };
 
             // Wheel mechanics
@@ -1341,7 +1376,7 @@
                 authOverlay.style.display = 'none';
                 updateUIState();
             } else {
-                updateModWidgetState();
+                updateModWidgetStates();
             }
         });
     </script>
