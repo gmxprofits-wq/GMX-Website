@@ -1,654 +1,603 @@
-// --- DATABASE & STATE MANAGEMENT ---
-let db = {
-    users: JSON.parse(localStorage.getItem('gmx_users')) || [],
-    currentUser: JSON.parse(localStorage.getItem('gmx_current_user')) || null
-};
+/**
+ * GMX Platform Secure Authentication & Ecosystem Architecture (Fabric 1.21.11 Optimized)
+ * Features: Dashboard, Mods Marketplace, 24-Hour Cooldown Spin Wheel, Daily Rewards, Gift Center, and Animated Modals
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    const DB_KEY = 'gmx_users_db';
+    const SESSION_KEY = 'gmx_active_session';
+    const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 Hours in milliseconds
 
-// Official Store Catalog featuring the exact mods requested with real file handles
-const storeCatalog = [
-    { 
-        id: 'mod_gmx', 
-        type: 'mod', 
-        name: 'GMX Performance Optimizer', 
-        version: 'v1.jar (Fabric)', 
-        tag: 'Performance', 
-        tagClass: 'tag-perf', 
-        icon: '⚡', 
-        shortDesc: 'Powerful Minecraft performance mod designed to make your game run faster and smoother.',
-        desc: 'GMX Performance Optimizer is a powerful Minecraft performance mod designed to make your game run faster and smoother. It optimizes rendering, reduces unnecessary lag, improves frame stability, and helps players get better FPS without changing normal gameplay.',
-        features: [
-            '🚀 FPS Boost Optimization',
-            '⚡ Faster Chunk Rendering',
-            '🧠 Memory Usage Improvements',
-            '🎮 Reduced Stuttering',
-            '🌎 Smoother World Loading',
-            '✨ Particle Optimization',
-            '👥 Entity Rendering Optimization',
-            '💻 Low-End PC Support'
-        ],
-        price: 200, 
-        fileName: 'GMX v1.jar',
-        // Base64 simulated binary content for instant browser download simulation
-        fileContent: 'UEsDBBQACAgI...GMX_PERFORMANCE_CORE_JAR_DATA' 
-    },
-    { 
-        id: 'mod_crystal', 
-        type: 'mod', 
-        name: 'GMX Crystal Optimizer', 
-        version: 'v1.jar (Fabric)', 
-        tag: 'PvP & Optimization', 
-        tagClass: 'tag-perf', 
-        icon: '💎', 
-        shortDesc: 'Improve Minecraft performance during intense fights with optimized crystal and explosion rendering.',
-        desc: 'GMX Crystal Optimizer is designed for players who experience FPS drops during high-action situations. It reduces unnecessary visual effects and improves rendering performance while keeping Minecraft looking great.',
-        features: [
-            '💎 Crystal Rendering Optimization',
-            '💥 Explosion Effect Optimization',
-            '✨ Particle Reduction',
-            '⚡ Better Frame Stability',
-            '🖥️ Performance Settings Menu'
-        ],
-        price: 500, 
-        fileName: 'GMXCrystalPerformance v1.jar',
-        fileContent: 'UEsDBBQACAgI...GMX_CRYSTAL_OPTIMIZER_JAR_DATA'
-    },
-    { 
-        id: 'mod_combathud', 
-        type: 'mod', 
-        name: 'GMX CombatHUD', 
-        version: 'v1.jar (Fabric)', 
-        tag: 'PvP Mod', 
-        tagClass: 'tag-pvp', 
-        icon: '⚔️', 
-        shortDesc: 'A clean PvP information HUD that displays important gameplay statistics.',
-        desc: 'GMX CombatHUD adds a customizable PvP overlay to Minecraft. It helps players view important information quickly with a modern and clean interface.',
-        features: [
-            '❤️ Health Display',
-            '🛡️ Armor Durability',
-            '⚔️ Weapon Durability',
-            '📊 FPS Counter',
-            '📍 Coordinates Display',
-            '⏱️ Effect Timers',
-            '🎮 Customizable HUD Layout'
-        ],
-        price: 300, 
-        fileName: 'GMXCombatHUD v1.jar',
-        fileContent: 'UEsDBBQACAgI...GMX_COMBAT_HUD_JAR_DATA'
-    },
-    { 
-        id: 'mod_autoaxe', 
-        type: 'mod', 
-        name: 'GMX AutoAxe', 
-        version: 'v1.jar (Fabric)', 
-        tag: 'PvP Mod', 
-        tagClass: 'tag-pvp', 
-        icon: '🪓', 
-        shortDesc: 'A smart PvP utility mod that helps players manage axe combat situations.',
-        desc: 'GMX AutoAxe is a Minecraft PvP utility mod designed to improve combat efficiency and player experience. It provides helpful combat features and quality-of-life improvements for axe-based PvP while keeping gameplay controlled by the player.',
-        features: [
-            '🪓 Axe Combat Assistance',
-            '⚡ Faster Item Switching',
-            '🛡️ Shield Combat Awareness',
-            '🎮 Customizable Settings',
-            '⌨️ Keybind Support',
-            '🖥️ Clean GMX Interface',
-            '⚙️ Lightweight Performance'
-        ],
-        price: 350, 
-        fileName: 'GMXAutoAxe v1.jar',
-        fileContent: 'UEsDBBQACAgI...GMX_AUTO_AXE_JAR_DATA'
-    }
-];
-
-// --- INITIALIZATION ---
-window.addEventListener('DOMContentLoaded', () => {
-    checkAuthState();
-    if(db.currentUser) {
-        initApp();
-    }
-});
-
-function saveDatabase() {
-    localStorage.setItem('gmx_users', JSON.stringify(db.users));
-    if(db.currentUser) {
-        localStorage.setItem('gmx_current_user', JSON.stringify(db.currentUser));
-        const idx = db.users.findIndex(u => u.username === db.currentUser.username);
-        if(idx !== -1) db.users[idx] = db.currentUser;
-        localStorage.setItem('gmx_users', JSON.stringify(db.users));
-    }
-}
-
-// --- ALERT SYSTEM ---
-function showAlert(message, type = 'error') {
-    const container = document.getElementById('alert-container');
-    const alert = document.createElement('div');
-    alert.className = `gmx-alert ${type}`;
-    let icon = '⚠️';
-    if(type === 'success') icon = '✅';
-    if(type === 'gold-alert') icon = '🪙';
-    
-    alert.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
-    container.appendChild(alert);
-    setTimeout(() => alert.remove(), 3000);
-}
-
-// --- AUTHENTICATION ---
-function switchAuthTab(tab) {
-    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
-    if(tab === 'login') {
-        document.querySelectorAll('.auth-tab')[0].classList.add('active');
-        document.getElementById('login-form').classList.add('active');
-    } else {
-        document.querySelectorAll('.auth-tab')[1].classList.add('active');
-        document.getElementById('register-form').classList.add('active');
-    }
-}
-
-function handleRegister(e) {
-    e.preventDefault();
-    const username = document.getElementById('reg-username').value.trim();
-    const password = document.getElementById('reg-password').value;
-
-    if(db.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-        showAlert('Username already exists!', 'error');
-        return;
+    function getUsersDB() {
+        const data = localStorage.getItem(DB_KEY);
+        return data ? JSON.parse(data) : {};
     }
 
-    const newUser = {
-        username: username,
-        password: password,
-        coins: 1500,
-        library: [],
-        receivedGifts: [],
-        sentGifts: [],
-        rewardHistory: [],
-        lastDailyClaim: 0,
-        spinCooldown: 0
+    function saveUsersDB(db) {
+        localStorage.setItem(DB_KEY, JSON.stringify(db));
+    }
+
+    async function hashPassword(password) {
+        const msgUint8 = new TextEncoder().encode(password + "GMX_SALT_2026");
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    const state = {
+        currentUser: null,
+        coins: 1250,
+        activePage: 'dashboard',
+        isSpinning: false,
+        currentRotation: 0
     };
 
-    db.users.push(newUser);
-    db.currentUser = newUser;
-    saveDatabase();
+    const elements = {
+        authOverlay: document.getElementById('authOverlay'),
+        loadingOverlay: document.getElementById('loadingOverlay'),
+        loadingText: document.getElementById('loadingText'),
+        appWorkspace: document.getElementById('appWorkspace'),
+        authTabs: document.querySelectorAll('.auth-tab'),
+        authForms: document.querySelectorAll('.auth-form'),
+        loginForm: document.getElementById('loginFormContainer'),
+        registerForm: document.getElementById('registerFormContainer'),
+        loginAlert: document.getElementById('loginAlert'),
+        registerAlert: document.getElementById('registerAlert'),
+        registerSuccess: document.getElementById('registerSuccess'),
+        navItems: document.querySelectorAll('.nav-item'),
+        pageViews: document.querySelectorAll('.page-view'),
+        pageTitleHeading: document.getElementById('pageTitleHeading'),
+        headerCoinDisplay: document.getElementById('headerCoinDisplay'),
+        headerUsernameDisplay: document.getElementById('headerUsernameDisplay'),
+        headerUserAvatar: document.getElementById('headerUserAvatar'),
+        dashUsername: document.getElementById('dashUsername'),
+        profileUsername: document.getElementById('profileUsername'),
+        profileEmail: document.getElementById('profileEmail'),
+        profileCoinBalance: document.getElementById('profileCoinBalance'),
+        logoutBtn: document.getElementById('logoutBtn'),
+        spinWheelBtn: document.getElementById('spinWheelBtn'),
+        spinWheelElement: document.getElementById('spinWheelElement'),
+        wheelTimerDisplay: document.getElementById('wheelTimerDisplay'),
+        claimDailyBtn: document.getElementById('claimDailyBtn'),
+        giftForm: document.getElementById('giftForm'),
+        giftRecipient: document.getElementById('giftRecipient'),
+        giftType: document.getElementById('giftType'),
+        giftItemSelectContainer: document.getElementById('giftItemSelectContainer'),
+        giftCoinAmountContainer: document.getElementById('giftCoinAmountContainer'),
+        giftCoinsInput: document.getElementById('giftCoinsInput'),
+        giftModSelect: document.getElementById('giftModSelect'),
+        giftMessage: document.getElementById('giftMessage')
+    };
 
-    showAlert('Account created successfully!', 'success');
-    document.getElementById('auth-overlay').classList.add('hidden');
-    initApp();
-}
-
-function handleLogin(e) {
-    e.preventDefault();
-    const username = document.getElementById('login-username').value.trim();
-    const password = document.getElementById('login-password').value;
-
-    const user = db.users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
-    if(!user) {
-        showAlert('Wrong password or username!', 'error');
-        return;
-    }
-
-    db.currentUser = user;
-    saveDatabase();
-
-    showAlert('Login successful!', 'success');
-    document.getElementById('auth-overlay').classList.add('hidden');
-    initApp();
-}
-
-function logoutUser() {
-    db.currentUser = null;
-    localStorage.removeItem('gmx_current_user');
-    document.getElementById('auth-overlay').classList.remove('hidden');
-}
-
-function checkAuthState() {
-    if(db.currentUser) {
-        document.getElementById('auth-overlay').classList.add('hidden');
-    } else {
-        document.getElementById('auth-overlay').classList.remove('hidden');
-    }
-}
-
-function initApp() {
-    updateCoinDisplay();
-    document.getElementById('nav-username').innerText = db.currentUser.username;
-    navigate('home');
-    checkIncomingGifts();
-}
-
-function updateCoinDisplay() {
-    if(!db.currentUser) return;
-    document.getElementById('nav-coin-balance').innerText = db.currentUser.coins.toLocaleString();
-}
-
-// --- ROUTER SYSTEM ---
-function navigate(page) {
-    const main = document.getElementById('main-content');
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-    event?.target?.classList?.add('active');
-
-    switch(page) {
-        case 'home': renderHome(main); break;
-        case 'store': renderStore(main); break;
-        case 'daily': renderDaily(main); break;
-        case 'wheel': renderWheel(main); break;
-        case 'gifts': renderGifts(main); break;
-        case 'blog': renderBlog(main); break;
-        case 'about': renderAbout(main); break;
-        case 'profile': renderProfile(main); break;
-        default: renderHome(main);
-    }
-}
-
-// --- VIEW RENDERERS ---
-
-function renderHome(container) {
-    container.innerHTML = `
-        <div class="hero-section">
-            <h1>ELITE MINECRAFT <span class="highlight">MOD ECOSYSTEM</span></h1>
-            <p>Access high-performance PvP optimization mods, custom overlays, and utility tools engineered for professional competition.</p>
-            <div class="hero-btns">
-                <button class="gmx-btn primary glow-red" onclick="navigate('store')">Browse Store</button>
-                <button class="gmx-btn gold glow-gold" onclick="navigate('wheel')">Spin & Win</button>
-            </div>
-        </div>
-        <h2 style="margin-bottom: 20px;">Featured GMX Mods</h2>
-        <div class="store-grid">
-            ${storeCatalog.slice(0, 2).map(mod => createModCardHTML(mod)).join('')}
-        </div>
-    `;
-}
-
-function renderStore(container) {
-    container.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 25px;">
-            <h2>GMX <span class="highlight">MOD STORE</span></h2>
-            <p style="color:var(--text-muted)">Unlock mods using your GMX Coins.</p>
-        </div>
-        <div class="store-grid">
-            ${storeCatalog.map(mod => createModCardHTML(mod)).join('')}
-        </div>
-    `;
-}
-
-function createModCardHTML(mod) {
-    const owned = db.currentUser.library.some(item => item.id === mod.id);
-    return `
-        <div class="mod-card">
-            <div class="mod-header">
-                <div class="mod-icon">${mod.icon}</div>
-                <div class="mod-title-area">
-                    <h3>${mod.name}</h3>
-                    <span class="tag ${mod.tagClass}">${mod.tag}</span>
-                </div>
-            </div>
-            <div class="mod-body">
-                <p>${mod.shortDesc}</p>
-                <ul class="mod-features">
-                    ${mod.features.slice(0, 4).map(f => `<li>${f}</li>`).join('')}
-                </ul>
-            </div>
-            <div class="mod-footer">
-                <div class="mod-price">🪙 ${mod.price} GMX</div>
-                ${owned ? 
-                    `<button class="gmx-btn gold" style="width:auto; padding:8px 16px;" onclick="downloadMod('${mod.id}')">Download .jar 📥</button>` :
-                    `<button class="gmx-btn primary" style="width:auto; padding:8px 16px;" onclick="buyMod('${mod.id}')">Purchase</button>`
-                }
-            </div>
-        </div>
-    `;
-}
-
-function buyMod(modId) {
-    const mod = storeCatalog.find(m => m.id === modId);
-    if(!mod) return;
-
-    if(db.currentUser.coins < mod.price) {
-        showAlert('Not enough GMX Coins! Earn more via Daily Rewards or Spin Wheel.', 'error');
-        return;
-    }
-
-    db.currentUser.coins -= mod.price;
-    db.currentUser.library.push(mod);
-    saveDatabase();
-    updateCoinDisplay();
-
-    showAlert(`Successfully purchased ${mod.name}! Added to your library.`, 'success');
-    navigate('store');
-}
-
-// --- DIRECT MOD DOWNLOAD FUNCTION ---
-function downloadMod(modId) {
-    const mod = storeCatalog.find(m => m.id === modId);
-    if(!mod) return;
-
-    // Create a Blob containing the simulated mod binary data and trigger a file download
-    const blob = new Blob([mod.fileContent], { type: 'application/java-archive' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = mod.fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    showAlert(`Downloading ${mod.fileName}... Check your downloads!`, 'success');
-}
-
-function renderDaily(container) {
-    const now = Date.now();
-    const cooldownTime = 24 * 60 * 60 * 1000;
-    const timePassed = now - db.currentUser.lastDailyClaim;
-    const canClaim = timePassed >= cooldownTime;
-
-    container.innerHTML = `
-        <div class="daily-container">
-            <div class="gmx-card daily-box">
-                <h2>DAILY <span class="highlight">REWARD CLAIM</span></h2>
-                <p>Claim 500 GMX Coins every 24 hours to fund your mod acquisitions.</p>
-                <div class="coin-chest glow-gold-pulse">🪙</div>
-                <div id="daily-timer-display" class="countdown-timer">
-                    ${canClaim ? 'READY TO CLAIM!' : calculateCountdown(cooldownTime - timePassed)}
-                </div>
-                <button id="claim-btn" class="gmx-btn gold glow-gold" ${canClaim ? '' : 'disabled style="opacity:0.5; cursor:not-allowed;"'} onclick="claimDailyReward()">
-                    Claim 500 Coins
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-function calculateCountdown(ms) {
-    const hours = Math.floor(ms / (1000 * 60 * 60));
-    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((ms % (1000 * 60)) / 1000);
-    return `Reset in: ${hours}h ${minutes}m ${seconds}s`;
-}
-
-setInterval(() => {
-    const timerDisplay = document.getElementById('daily-timer-display');
-    if(timerDisplay && db.currentUser) {
-        const now = Date.now();
-        const cooldownTime = 24 * 60 * 60 * 1000;
-        const timePassed = now - db.currentUser.lastDailyClaim;
-        if(timePassed < cooldownTime) {
-            timerDisplay.innerText = calculateCountdown(cooldownTime - timePassed);
-        } else {
-            timerDisplay.innerText = 'READY TO CLAIM!';
-            const btn = document.getElementById('claim-btn');
-            if(btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+    function checkActiveSession() {
+        const activeUserJson = localStorage.getItem(SESSION_KEY);
+        if (activeUserJson) {
+            const userData = JSON.parse(activeUserJson);
+            loginUserSession(userData, false);
         }
     }
-}, 1000);
 
-function claimDailyReward() {
-    db.currentUser.coins += 500;
-    db.currentUser.lastDailyClaim = Date.now();
-    db.currentUser.rewardHistory.push({ type: 'Daily Reward', amount: 500, date: new Date().toLocaleDateString() });
-    saveDatabase();
-    updateCoinDisplay();
-    showAlert('Successfully claimed 500 GMX Coins!', 'success');
-    renderDaily(document.getElementById('main-content'));
-}
+    elements.authTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.getAttribute('data-auth-target');
+            elements.authTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            elements.authForms.forEach(form => {
+                form.classList.remove('active');
+                if (form.id === `${target}FormContainer`) {
+                    form.classList.add('active');
+                }
+            });
+            if (elements.loginAlert) elements.loginAlert.style.display = 'none';
+            if (elements.registerAlert) elements.registerAlert.style.display = 'none';
+            if (elements.registerSuccess) elements.registerSuccess.style.display = 'none';
+        });
+    });
 
-function renderWheel(container) {
-    container.innerHTML = `
-        <div class="wheel-container">
-            <h2>GMX <span class="highlight">SPIN WHEEL</span></h2>
-            <p>Test your luck and win up to 5,000 GMX Coins!</p>
-            <div class="wheel-wrapper">
-                <div class="wheel-pointer"></div>
-                <div id="spin-wheel" class="spin-wheel">
-                    <div class="wheel-slice" style="transform: rotate(0deg) skewY(-60deg); background:#111;">50 🪙</div>
-                    <div class="wheel-slice" style="transform: rotate(60deg) skewY(-60deg); background:#1a1a22;">100 🪙</div>
-                    <div class="wheel-slice" style="transform: rotate(120deg) skewY(-60deg); background:#111;">250 🪙</div>
-                    <div class="wheel-slice" style="transform: rotate(180deg) skewY(-60deg); background:#1a1a22;">500 🪙</div>
-                    <div class="wheel-slice" style="transform: rotate(240deg) skewY(-60deg); background:#111;">1000 🪙</div>
-                    <div class="wheel-slice" style="transform: rotate(300deg) skewY(-60deg); background:#1a1a22; color:var(--gold-primary);">5000 🪙</div>
-                </div>
-            </div>
-            <button id="spin-btn" class="gmx-btn primary glow-red" onclick="spinWheel()">Spin the Wheel (Cost: 100 🪙)</button>
-        </div>
-    `;
-}
+    if (elements.registerForm) {
+        elements.registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            elements.registerAlert.style.display = 'none';
+            elements.registerSuccess.style.display = 'none';
 
-let isSpinning = false;
-function spinWheel() {
-    if(isSpinning) return;
-    if(db.currentUser.coins < 100) {
-        showAlert('You need at least 100 GMX Coins to spin!', 'error');
-        return;
+            const email = document.getElementById('regEmail').value.trim();
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value;
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                elements.registerAlert.textContent = "Please enter a valid email address.";
+                elements.registerAlert.style.display = 'block';
+                return;
+            }
+
+            const db = getUsersDB();
+            if (db[username]) {
+                elements.registerAlert.textContent = "Username is already taken. Choose another.";
+                elements.registerAlert.style.display = 'block';
+                return;
+            }
+
+            showLoader(true, "Creating secure GMX Profile...");
+            const passwordHash = await hashPassword(password);
+
+            setTimeout(() => {
+                db[username] = {
+                    email: email,
+                    username: username,
+                    passwordHash: passwordHash,
+                    coins: 1250,
+                    lastDailyClaim: null,
+                    lastSpinTime: null,
+                    inventory: [],
+                    giftsInbox: [],
+                    createdAt: new Date().toISOString()
+                };
+                saveUsersDB(db);
+                showLoader(false);
+
+                elements.registerSuccess.textContent = "Registration Successful! Redirecting to login portal...";
+                elements.registerSuccess.style.display = 'block';
+
+                setTimeout(() => {
+                    elements.registerSuccess.style.display = 'none';
+                    elements.registerForm.reset();
+                    document.querySelector('[data-auth-target="login"]').click();
+                    document.getElementById('loginUsername').value = username;
+                }, 1500);
+            }, 1000);
+        });
     }
 
-    db.currentUser.coins -= 100;
-    updateCoinDisplay();
-    isSpinning = true;
-    document.getElementById('spin-btn').disabled = true;
+    if (elements.loginForm) {
+        elements.loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            elements.loginAlert.style.display = 'none';
 
-    const wheel = document.getElementById('spin-wheel');
-    const rewards = [50, 100, 250, 500, 1000, 5000];
-    const weights = [40, 30, 15, 10, 4, 1];
-    
-    let rand = Math.random() * 100;
-    let cumulative = 0;
-    let winningIndex = 0;
-    for(let i=0; i<weights.length; i++) {
-        cumulative += weights[i];
-        if(rand <= cumulative) { winningIndex = i; break; }
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            const db = getUsersDB();
+            const user = db[username];
+
+            if (!user) {
+                elements.loginAlert.textContent = "Wrong username or password.";
+                elements.loginAlert.style.display = 'block';
+                return;
+            }
+
+            const passwordHash = await hashPassword(password);
+            if (user.passwordHash !== passwordHash) {
+                elements.loginAlert.textContent = "Wrong username or password.";
+                elements.loginAlert.style.display = 'block';
+                return;
+            }
+
+            showLoader(true, "Authenticating credentials & Loading profile...");
+
+            setTimeout(() => {
+                showLoader(false);
+                loginUserSession(user, rememberMe);
+            }, 1200);
+        });
     }
 
-    const degreesPerSlice = 60;
-    const targetDegree = 360 * 5 + (winningIndex * degreesPerSlice) + 30;
-    wheel.style.transform = `rotate(${targetDegree}deg)`;
+    function loginUserSession(user, remember) {
+        state.currentUser = user.username;
+        state.coins = user.coins || 1250;
 
-    setTimeout(() => {
-        const wonAmount = rewards[winningIndex];
-        db.currentUser.coins += wonAmount;
-        db.currentUser.rewardHistory.push({ type: 'Spin Wheel', amount: wonAmount, date: new Date().toLocaleDateString() });
-        saveDatabase();
-        updateCoinDisplay();
-        showAlert(`Congratulations! You won ${wonAmount} GMX Coins!`, 'gold-alert');
-        isSpinning = false;
-        document.getElementById('spin-btn').disabled = false;
-    }, 4000);
-}
+        if (remember) {
+            localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+        }
 
-function renderGifts(container) {
-    container.innerHTML = `
-        <div class="gift-center-grid">
-            <div class="gmx-card">
-                <h2>SEND A <span class="highlight">GIFT</span></h2>
-                <p style="color:var(--text-muted); margin-bottom:20px;">Surprise another agent with a mod or custom package.</p>
-                <form onsubmit="sendGift(event)">
-                    <div class="input-group">
-                        <label>Receiver Username</label>
-                        <input type="text" id="gift-receiver" required placeholder="Enter exact username...">
-                    </div>
-                    <div class="input-group">
-                        <label>Select Item</label>
-                        <select id="gift-item-select">
-                            ${storeCatalog.map(m => `<option value="${m.id}">${m.name} (${m.price} 🪙)</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Personal Message / Letter</label>
-                        <textarea id="gift-message" rows="4" required placeholder="Hope you enjoy this GMX mod!"></textarea>
-                    </div>
-                    <button type="submit" class="gmx-btn primary glow-red">Dispatch Gift</button>
-                </form>
-            </div>
-            <div class="gmx-card">
-                <h2>GIFT <span class="highlight">HISTORY</span></h2>
-                <p style="color:var(--text-muted); margin-bottom:20px;">Log of gifts dispatched to other players.</p>
-                <div style="display:flex; flex-direction:column; gap:10px; max-height:350px; overflow-y:auto;">
-                    ${db.currentUser.sentGifts.length === 0 ? '<p style="color:#666;">No gifts sent yet.</p>' : 
-                        db.currentUser.sentGifts.map(g => `
-                            <div style="background:#08080a; padding:12px; border-radius:6px; border:1px solid var(--border-color);">
-                                <div style="font-family:var(--font-heading); font-size:14px; color:var(--gold-primary);">To: ${g.receiver}</div>
-                                <div style="font-size:14px; color:#ccc;">Item: ${g.item.name}</div>
-                                <div style="font-size:12px; font-style:italic; color:#888;">"${g.message}"</div>
-                            </div>
-                        `).join('')}
-                </div>
-            </div>
-        </div>
-    `;
-}
+        if (elements.headerUsernameDisplay) elements.headerUsernameDisplay.textContent = user.username;
+        if (elements.headerUserAvatar) elements.headerUserAvatar.textContent = user.username.substring(0, 2).toUpperCase();
+        if (elements.dashUsername) elements.dashUsername.textContent = user.username;
+        if (elements.profileUsername) elements.profileUsername.textContent = user.username;
+        if (elements.profileEmail) elements.profileEmail.textContent = user.email;
+        
+        updateCoinDisplays();
+        renderGiftsInbox();
+        checkWheelCooldownStatus();
 
-function sendGift(e) {
-    e.preventDefault();
-    const receiverName = document.getElementById('gift-receiver').value.trim();
-    const itemId = document.getElementById('gift-item-select').value;
-    const message = document.getElementById('gift-message').value;
+        if (elements.authOverlay) elements.authOverlay.style.display = 'none';
+        if (elements.appWorkspace) elements.appWorkspace.style.display = 'block';
 
-    if(receiverName.toLowerCase() === db.currentUser.username.toLowerCase()) {
-        showAlert('You cannot gift items to yourself!', 'error');
-        return;
+        checkIncomingGifts(user);
     }
 
-    const receiverUser = db.users.find(u => u.username.toLowerCase() === receiverName.toLowerCase());
-    if(!receiverUser) {
-        showAlert('Receiver username not found in GMX network!', 'error');
-        return;
+    if (elements.logoutBtn) {
+        elements.logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem(SESSION_KEY);
+            window.location.reload();
+        });
     }
 
-    const mod = storeCatalog.find(m => m.id === itemId);
-    if(db.currentUser.coins < mod.price) {
-        showAlert('Not enough GMX Coins to purchase and send this gift!', 'error');
-        return;
+    elements.navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetPage = item.getAttribute('data-page');
+            if (!targetPage) return;
+
+            elements.navItems.forEach(nav => nav.classList.remove('active'));
+            item.classList.add('active');
+
+            elements.pageViews.forEach(view => {
+                view.classList.remove('active');
+                if (view.id === `${targetPage}-view`) {
+                    view.classList.add('active');
+                }
+            });
+
+            state.activePage = targetPage;
+            if (elements.pageTitleHeading) elements.pageTitleHeading.textContent = item.textContent.trim();
+            if (targetPage === 'gifts') {
+                renderGiftsInbox();
+            }
+            if (targetPage === 'wheel') {
+                checkWheelCooldownStatus();
+            }
+        });
+    });
+
+    // 24-Hour Cooldown Spin Wheel Logic
+    function checkWheelCooldownStatus() {
+        if (!state.currentUser) return;
+        const db = getUsersDB();
+        const user = db[state.currentUser];
+        if (!user) return;
+
+        const now = Date.now();
+        const lastSpin = user.lastSpinTime || 0;
+        const elapsed = now - lastSpin;
+
+        if (elapsed < COOLDOWN_MS) {
+            const remaining = COOLDOWN_MS - elapsed;
+            elements.spinWheelBtn.disabled = true;
+            startCooldownTimer(remaining);
+        } else {
+            elements.spinWheelBtn.disabled = false;
+            if (elements.wheelTimerDisplay) {
+                elements.wheelTimerDisplay.textContent = "Status: Ready to spin!";
+            }
+        }
     }
 
-    db.currentUser.coins -= mod.price;
-    updateCoinDisplay();
+    let wheelTimerInterval = null;
+    function startCooldownTimer(durationMs) {
+        if (wheelTimerInterval) clearInterval(wheelTimerInterval);
 
-    const giftPackage = {
-        sender: db.currentUser.username,
-        item: mod,
-        message: message
+        let timeLeft = durationMs;
+        updateTimerText(timeLeft);
+
+        wheelTimerInterval = setInterval(() => {
+            timeLeft -= 1000;
+            if (timeLeft <= 0) {
+                clearInterval(wheelTimerInterval);
+                elements.spinWheelBtn.disabled = false;
+                if (elements.wheelTimerDisplay) {
+                    elements.wheelTimerDisplay.textContent = "Status: Ready to spin!";
+                }
+            } else {
+                updateTimerText(timeLeft);
+            }
+        }, 1000);
+    }
+
+    function updateTimerText(ms) {
+        const hours = Math.floor(ms / (1000 * 60 * 60));
+        const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+        if (elements.wheelTimerDisplay) {
+            elements.wheelTimerDisplay.textContent = `Cooldown active: ${hours}h ${minutes}m ${seconds}s remaining`;
+        }
+    }
+
+    if (elements.spinWheelBtn && elements.spinWheelElement) {
+        elements.spinWheelBtn.addEventListener('click', () => {
+            if (state.isSpinning) return;
+
+            const db = getUsersDB();
+            const user = db[state.currentUser];
+            const now = Date.now();
+            if (user && user.lastSpinTime && (now - user.lastSpinTime < COOLDOWN_MS)) {
+                showCustomAlert("You can only spin the wheel once every 24 hours! Please wait for the cooldown.", "warning");
+                return;
+            }
+
+            state.isSpinning = true;
+            elements.spinWheelBtn.disabled = true;
+
+            const prizes = [100, 250, 500, 50, 1000, 200];
+            const randomSegment = Math.floor(Math.random() * prizes.length);
+            const degreesPerSegment = 360 / prizes.length;
+            
+            const extraSpins = 5 * 360;
+            const targetDegree = extraSpins + (360 - (randomSegment * degreesPerSegment)) - (degreesPerSegment / 2);
+            
+            state.currentRotation += targetDegree;
+            elements.spinWheelElement.style.transform = `rotate(${state.currentRotation}deg)`;
+
+            setTimeout(() => {
+                state.isSpinning = false;
+                const wonAmount = prizes[randomSegment];
+                state.coins += wonAmount;
+                updateCoinDisplays();
+                syncUserCoins();
+
+                // Save last spin timestamp
+                if (user) {
+                    user.lastSpinTime = Date.now();
+                    saveUsersDB(db);
+                }
+
+                showCustomAlert(`Congratulations! Won +${wonAmount} GMX Coins from spin wheel!`, 'success');
+                checkWheelCooldownStatus();
+            }, 4000);
+        });
+    }
+
+    if (elements.claimDailyBtn) {
+        elements.claimDailyBtn.addEventListener('click', () => {
+            const db = getUsersDB();
+            const user = db[state.currentUser];
+            const todayStr = new Date().toDateString();
+
+            if (user && user.lastDailyClaim === todayStr) {
+                showCustomAlert("You have already claimed your daily reward today! Come back tomorrow.", "warning");
+                return;
+            }
+
+            state.coins += 500;
+            updateCoinDisplays();
+            if (user) {
+                user.lastDailyClaim = todayStr;
+                user.coins = state.coins;
+                saveUsersDB(db);
+                if (localStorage.getItem(SESSION_KEY)) {
+                    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+                }
+            }
+            showCustomAlert("Successfully claimed +500 GMX Coins daily reward stipend!", "success");
+        });
+    }
+
+    window.purchaseMod = function(cost, modName) {
+        if (state.coins >= cost) {
+            state.coins -= cost;
+            updateCoinDisplays();
+            syncUserCoins();
+            
+            const db = getUsersDB();
+            if (db[state.currentUser]) {
+                if (!db[state.currentUser].inventory) db[state.currentUser].inventory = [];
+                db[state.currentUser].inventory.push(modName);
+                saveUsersDB(db);
+            }
+
+            showCustomAlert(`Successfully unlocked ${modName}! Added to your inventory.`, 'success');
+        } else {
+            showCustomAlert("Insufficient GMX Coins! Spin the wheel or claim daily rewards to get more.", 'error');
+        }
     };
 
-    receiverUser.receivedGifts.push(giftPackage);
-    db.currentUser.sentGifts.push({ receiver: receiverName, item: mod, message: message });
-    saveDatabase();
-
-    showAlert(`Gift successfully dispatched to ${receiverName}!`, 'success');
-    document.getElementById('gift-receiver').value = '';
-    document.getElementById('gift-message').value = '';
-    navigate('gifts');
-}
-
-let activeGiftData = null;
-function checkIncomingGifts() {
-    if(db.currentUser.receivedGifts && db.currentUser.receivedGifts.length > 0) {
-        activeGiftData = db.currentUser.receivedGifts[0];
-        document.getElementById('gift-sender-text').innerText = `From Agent: ${activeGiftData.sender}`;
-        document.getElementById('gift-content-reveal').classList.add('hidden');
-        document.getElementById('interactive-gift-box').classList.remove('hidden');
-        document.getElementById('gift-modal').classList.remove('hidden');
+    if (elements.giftType) {
+        elements.giftType.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'coins') {
+                elements.giftCoinAmountContainer.style.display = 'block';
+                elements.giftItemSelectContainer.style.display = 'none';
+            } else {
+                elements.giftCoinAmountContainer.style.display = 'none';
+                elements.giftItemSelectContainer.style.display = 'block';
+            }
+        });
     }
-}
 
-function openActiveGift() {
-    document.getElementById('interactive-gift-box').classList.add('hidden');
-    document.getElementById('gift-letter-display').innerText = `"${activeGiftData.message}"`;
-    document.getElementById('gift-item-display').innerHTML = `
-        <div style="background:#111; padding:15px; border-radius:6px; border:1px solid var(--border-color); display:flex; align-items:center; gap:15px; text-align:left;">
-            <span style="font-size:32px;">${activeGiftData.item.icon}</span>
-            <div>
-                <h4 style="font-size:16px;">${activeGiftData.item.name}</h4>
-                <span class="tag ${activeGiftData.item.tagClass}">${activeGiftData.item.tag}</span>
-            </div>
-        </div>
-    `;
-    document.getElementById('gift-content-reveal').classList.remove('hidden');
-}
+    if (elements.giftForm) {
+        elements.giftForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const recipientName = elements.giftRecipient.value.trim();
+            const type = elements.giftType.value;
+            const message = elements.giftMessage.value.trim() || "Enjoy your gift from GMX Platform!";
 
-function claimGiftContent() {
-    if(!db.currentUser.library.some(i => i.id === activeGiftData.item.id)) {
-        db.currentUser.library.push(activeGiftData.item);
+            if (recipientName === state.currentUser) {
+                showCustomAlert("You cannot send gifts to yourself!", "error");
+                return;
+            }
+
+            const db = getUsersDB();
+            const recipientUser = db[recipientName];
+
+            if (!recipientUser) {
+                showCustomAlert(`User "${recipientName}" does not exist in the GMX network.`, "error");
+                return;
+            }
+
+            if (type === 'coins') {
+                const amount = parseInt(elements.giftCoinsInput.value);
+                if (isNaN(amount) || amount <= 0) {
+                    showCustomAlert("Please enter a valid coin amount.", "error");
+                    return;
+                }
+                if (state.coins < amount) {
+                    showCustomAlert("You do not have enough coins to send this gift!", "error");
+                    return;
+                }
+
+                state.coins -= amount;
+                updateCoinDisplays();
+                syncUserCoins();
+
+                if (!recipientUser.giftsInbox) recipientUser.giftsInbox = [];
+                recipientUser.giftsInbox.push({
+                    sender: state.currentUser,
+                    type: 'coins',
+                    amount: amount,
+                    message: message,
+                    timestamp: new Date().toISOString(),
+                    claimed: false
+                });
+                saveUsersDB(db);
+
+                showCustomAlert(`Successfully sent ${amount} GMX Coins to ${recipientName} with custom message!`, "success");
+                triggerGiftAnimationEffects();
+                elements.giftForm.reset();
+
+            } else {
+                const modName = elements.giftModSelect.value;
+                const currentUserObj = db[state.currentUser];
+                
+                if (!currentUserObj.inventory || !currentUserObj.inventory.includes(modName)) {
+                    showCustomAlert("You do not own this mod in your inventory to gift it!", "error");
+                    return;
+                }
+
+                currentUserObj.inventory = currentUserObj.inventory.filter(item => item !== modName);
+                saveUsersDB(db);
+
+                if (!recipientUser.giftsInbox) recipientUser.giftsInbox = [];
+                recipientUser.giftsInbox.push({
+                    sender: state.currentUser,
+                    type: 'mod',
+                    modName: modName,
+                    message: message,
+                    timestamp: new Date().toISOString(),
+                    claimed: false
+                });
+                saveUsersDB(db);
+
+                showCustomAlert(`Successfully sent mod "${modName}" to ${recipientName}!`, "success");
+                triggerGiftAnimationEffects();
+                elements.giftForm.reset();
+            }
+        });
     }
-    db.currentUser.receivedGifts.shift();
-    saveDatabase();
 
-    document.getElementById('gift-modal').classList.add('hidden');
-    showAlert('Gift successfully claimed and added to your library!', 'success');
-    checkIncomingGifts();
-}
+    function renderGiftsInbox() {
+        const inboxListContainer = document.getElementById('giftsInboxList');
+        if (!inboxListContainer) return;
 
-function renderBlog(container) {
-    container.innerHTML = `
-        <h2>UPDATES <span class="highlight">BLOG</span></h2>
-        <p style="color:var(--text-muted); margin-bottom:30px;">Latest patch notes and framework upgrades for GMX Mods.</p>
-        <div style="display:flex; flex-direction:column; gap:20px;">
-            <div class="gmx-card">
-                <span class="tag tag-perf" style="margin-bottom:10px; display:inline-block;">Patch v1.4</span>
-                <h3>GMX Core Engine & Crystal Optimization Update</h3>
-                <p style="color:var(--text-muted); margin-top:10px;">We have updated all four core mods for Fabric 1.20+ with enhanced frame stability and direct file downloading features.</p>
-            </div>
-        </div>
-    `;
-}
+        const db = getUsersDB();
+        const user = db[state.currentUser];
+        if (!user || !user.giftsInbox || user.giftsInbox.length === 0) {
+            inboxListContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding: 2rem;">No incoming gifts found in your inbox.</p>`;
+            return;
+        }
 
-function renderAbout(container) {
-    container.innerHTML = `
-        <h2>ABOUT <span class="highlight">GMX MODS</span></h2>
-        <p style="color:var(--text-muted); margin-top:15px; line-height:1.6;">
-            GMX Mods is an elite, high-performance platform engineered specifically for competitive Minecraft players. Every mod is fully tested for maximum frame stability and low-end PC support.
-        </p>
-    `;
-}
-
-function renderProfile(container) {
-    container.innerHTML = `
-        <div class="profile-header">
-            <div class="profile-avatar">⚡</div>
-            <div>
-                <h2 style="font-size:28px;">${db.currentUser.username}</h2>
-                <p style="color:var(--text-muted);">Elite GMX Ecosystem Member</p>
-            </div>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div style="color:var(--text-muted); font-size:14px;">Coin Balance</div>
-                <div class="stat-value">🪙 ${db.currentUser.coins.toLocaleString()}</div>
-            </div>
-            <div class="stat-card">
-                <div style="color:var(--text-muted); font-size:14px;">Owned Mods</div>
-                <div class="stat-value">${db.currentUser.library.length}</div>
-            </div>
-            <div class="stat-card">
-                <div style="color:var(--text-muted); font-size:14px;">Gifts Received</div>
-                <div class="stat-value">${db.currentUser.receivedGifts.length}</div>
-            </div>
-            <div class="stat-card">
-                <div style="color:var(--text-muted); font-size:14px;">Gifts Sent</div>
-                <div class="stat-value">${db.currentUser.sentGifts.length}</div>
-            </div>
-        </div>
-
-        <h3 style="margin-bottom:15px;">Your Mod Library</h3>
-        <div class="store-grid" style="margin-bottom:40px;">
-            ${db.currentUser.library.length === 0 ? '<p style="color:#666;">No mods in library yet. Visit the store to unlock.</p>' :
-                db.currentUser.library.map(mod => `
-                    <div class="mod-card">
-                        <div class="mod-header">
-                            <div class="mod-icon">${mod.icon}</div>
-                            <div class="mod-title-area">
-                                <h3>${mod.name}</h3>
-                                <span class="tag ${mod.tagClass}">${mod.tag}</span>
-                            </div>
-                        </div>
-                        <div class="mod-body">
-                            <p>${mod.shortDesc}</p>
-                        </div>
-                        <div class="mod-footer">
-                            <span style="font-size:12px; color:var(--text-muted);">${mod.fileName}</span>
-                            <button class="gmx-btn gold" style="width:auto; padding:8px 16px;" onclick="downloadMod('${mod.id}')">Download .jar 📥</button>
-                        </div>
+        let html = '';
+        user.giftsInbox.forEach((gift, index) => {
+            const giftTitle = gift.type === 'coins' ? `${gift.amount} GMX Coins` : `Mod: ${gift.modName}`;
+            html += `
+                <div class="mod-card" style="padding: 1.25rem; margin-bottom: 1rem; flex-direction: row; align-items: center; justify-content: space-between;">
+                    <div>
+                        <div class="mod-tags"><span class="mod-tag tag-pvp">Gift from @${gift.sender}</span></div>
+                        <h3 style="font-size: 1.1rem; margin: 0.25rem 0;">${giftTitle}</h3>
+                        <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">"${gift.message}"</p>
                     </div>
-                `).join('')}
-        </div>
-    `;
-}
+                    <div>
+                        ${gift.claimed ? '<span class="text-gold" style="font-weight: 700;">Claimed</span>' : `<button class="btn-primary" onclick="claimGiftItem(${index})">Claim Gift</button>`}
+                    </div>
+                </div>
+            `;
+        });
+        inboxListContainer.innerHTML = html;
+    }
+
+    window.claimGiftItem = function(index) {
+        const db = getUsersDB();
+        const user = db[state.currentUser];
+        if (!user || !user.giftsInbox || !user.giftsInbox[index]) return;
+
+        const gift = user.giftsInbox[index];
+        if (gift.claimed) return;
+
+        gift.claimed = true;
+        if (gift.type === 'coins') {
+            state.coins += gift.amount;
+            updateCoinDisplays();
+            user.coins = state.coins;
+        } else {
+            if (!user.inventory) user.inventory = [];
+            user.inventory.push(gift.modName);
+        }
+
+        saveUsersDB(db);
+        renderGiftsInbox();
+        triggerGiftAnimationEffects();
+        showCustomAlert("Gift successfully claimed and added to your account with festive alert animations!", "success");
+    }
+
+    function checkIncomingGifts(user) {
+        if (user.giftsInbox && user.giftsInbox.some(g => !g.claimed)) {
+            setTimeout(() => {
+                showCustomAlert("🎁 You have unopened gifts waiting in your Gift Center Inbox!", "success");
+            }, 1000);
+        }
+    }
+
+    function showCustomAlert(message, type = 'success') {
+        let alertBox = document.getElementById('gmxCustomAlertModal');
+        if (!alertBox) {
+            alertBox = document.createElement('div');
+            alertBox.id = 'gmxCustomAlertModal';
+            alertBox.className = 'auth-overlay';
+            alertBox.style.zIndex = '5000';
+            document.body.appendChild(alertBox);
+        }
+
+        const borderColor = type === 'success' ? 'var(--success)' : type === 'warning' ? 'var(--accent)' : 'var(--danger)';
+        const iconClass = type === 'success' ? 'fa-circle-check text-gold' : 'fa-triangle-exclamation';
+
+        alertBox.innerHTML = `
+            <div class="auth-container" style="border-color: ${borderColor}; animation: popInModal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+                <div style="font-size: 3rem; margin-bottom: 1rem;"><i class="fa-solid ${iconClass}"></i></div>
+                <h3 style="font-size: 1.5rem; margin-bottom: 0.75rem;">GMX Notification</h3>
+                <p style="color: var(--text-muted); margin-bottom: 2rem; font-size: 1rem; line-height: 1.5;">${message}</p>
+                <button class="btn-primary" style="width: 100%; justify-content: center;" onclick="document.getElementById('gmxCustomAlertModal').style.display='none'">Awesome, Thanks!</button>
+            </div>
+        `;
+        alertBox.style.display = 'flex';
+    }
+
+    function triggerGiftAnimationEffects() {
+        const burst = document.createElement('div');
+        burst.style.position = 'fixed';
+        burst.style.top = '0';
+        burst.style.left = '0';
+        burst.style.width = '100vw';
+        burst.style.height = '100vh';
+        burst.style.zIndex = '4000';
+        burst.style.pointerEvents = 'none';
+        burst.style.background = 'radial-gradient(circle, rgba(245,158,11,0.2) 0%, rgba(3,7,18,0) 70%)';
+        burst.style.animation = 'fadeInOutEffect 1.5s ease forwards';
+        document.body.appendChild(burst);
+
+        setTimeout(() => {
+            burst.remove();
+        }, 1500);
+    }
+
+    function syncUserCoins() {
+        const db = getUsersDB();
+        if (db[state.currentUser]) {
+            db[state.currentUser].coins = state.coins;
+            saveUsersDB(db);
+            if (localStorage.getItem(SESSION_KEY)) {
+                localStorage.setItem(SESSION_KEY, JSON.stringify(db[state.currentUser]));
+            }
+        }
+    }
+
+    function updateCoinDisplays() {
+        if (elements.headerCoinDisplay) elements.headerCoinDisplay.textContent = state.coins.toLocaleString();
+        if (elements.profileCoinBalance) elements.profileCoinBalance.textContent = state.coins.toLocaleString();
+    }
+
+    function showLoader(show, text = "Loading...") {
+        if (elements.loadingText) elements.loadingText.textContent = text;
+        if (elements.loadingOverlay) elements.loadingOverlay.style.display = show ? 'flex' : 'none';
+    }
+
+    checkActiveSession();
+});
