@@ -202,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCoinDisplays();
         renderGiftsInbox();
         checkWheelCooldownStatus();
+        updateModsUIState();
 
         if (elements.authOverlay) elements.authOverlay.style.display = 'none';
         if (elements.appWorkspace) elements.appWorkspace.style.display = 'block';
@@ -239,6 +240,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (targetPage === 'wheel') {
                 checkWheelCooldownStatus();
+            }
+            if (targetPage === 'mods') {
+                updateModsUIState();
             }
         });
     });
@@ -373,15 +377,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const db = getUsersDB();
             if (db[state.currentUser]) {
                 if (!db[state.currentUser].inventory) db[state.currentUser].inventory = [];
-                db[state.currentUser].inventory.push(modName);
+                if (!db[state.currentUser].inventory.includes(modName)) {
+                    db[state.currentUser].inventory.push(modName);
+                }
                 saveUsersDB(db);
             }
 
-            showCustomAlert(`Successfully unlocked ${modName}! Added to your inventory.`, 'success');
+            updateModsUIState();
+            showCustomAlert(`Successfully unlocked ${modName}! Added to your inventory and download ready.`, 'success');
         } else {
             showCustomAlert("Insufficient GMX Coins! Spin the wheel or claim daily rewards to get more.", 'error');
         }
     };
+
+    function updateModsUIState() {
+        if (!state.currentUser) return;
+        const db = getUsersDB();
+        const user = db[state.currentUser];
+        if (!user) return;
+
+        const inventory = user.inventory || [];
+        const modCards = document.querySelectorAll('.mod-card');
+
+        modCards.forEach(card => {
+            const modName = card.getAttribute('data-mod-name');
+            const priceSpan = card.querySelector('.mod-price');
+            const actionBtn = card.querySelector('button');
+
+            // Crystal optimizer is always free/downloadable
+            if (modName === 'GMX Crystal Optimizer') {
+                return;
+            }
+
+            const isOwned = inventory.includes(modName);
+            if (isOwned) {
+                if (priceSpan) {
+                    priceSpan.textContent = 'UNLOCKED';
+                    priceSpan.style.color = 'var(--success)';
+                }
+                if (actionBtn) {
+                    actionBtn.className = 'btn-download';
+                    actionBtn.textContent = 'Download';
+                    actionBtn.onclick = function() {
+                        alert(`Downloading ${modName}...`);
+                    };
+                }
+            }
+        });
+    }
 
     if (elements.giftType) {
         elements.giftType.addEventListener('change', (e) => {
@@ -484,6 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 db[recipientUser.username] = recipientUser;
                 saveUsersDB(db);
 
+                updateModsUIState();
                 showCustomAlert(`Successfully sent mod "${modName}" to ${recipientUser.username}!`, "success");
                 triggerGiftAnimationEffects();
                 elements.giftForm.reset();
@@ -536,12 +580,15 @@ document.addEventListener('DOMContentLoaded', () => {
             user.coins = state.coins;
         } else {
             if (!user.inventory) user.inventory = [];
-            user.inventory.push(gift.modName);
+            if (!user.inventory.includes(gift.modName)) {
+                user.inventory.push(gift.modName);
+            }
         }
 
         db[state.currentUser] = user;
         saveUsersDB(db);
         renderGiftsInbox();
+        updateModsUIState();
         triggerGiftAnimationEffects();
         showCustomAlert("Gift successfully claimed and added to your account with festive alert animations!", "success");
     }
