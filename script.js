@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeUserJson = localStorage.getItem(SESSION_KEY);
         if (activeUserJson) {
             const userData = JSON.parse(activeUserJson);
-            // Re-fetch latest user data from DB to guarantee inbox sync across sessions
+            // Refresh from database to ensure fresh state (like gifts/inventory)
             const db = getUsersDB();
             const freshUser = db[userData.username] || userData;
             loginUserSession(freshUser, false);
@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function loginUserSession(user, remember) {
         state.currentUser = user.username;
-        state.coins = user.coins !== undefined ? user.coins : 1250;
+        state.coins = user.coins || 1250;
 
         if (remember) {
             localStorage.setItem(SESSION_KEY, JSON.stringify(user));
@@ -399,23 +399,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elements.giftForm) {
         elements.giftForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const recipientName = elements.giftRecipient.value.trim();
+            const recipientNameInput = elements.giftRecipient.value.trim();
             const type = elements.giftType.value;
             const message = elements.giftMessage.value.trim() || "Enjoy your gift from GMX Platform!";
 
-            if (recipientName === state.currentUser) {
+            const db = getUsersDB();
+            
+            // Case-insensitive user key lookup for safety
+            const recipientKey = Object.keys(db).find(k => k.toLowerCase() === recipientNameInput.toLowerCase());
+            const recipientUser = recipientKey ? db[recipientKey] : null;
+
+            if (!recipientUser) {
+                showCustomAlert(`User "${recipientNameInput}" does not exist in the GMX network.`, "error");
+                return;
+            }
+
+            if (recipientUser.username === state.currentUser) {
                 showCustomAlert("You cannot send gifts to yourself!", "error");
                 return;
             }
 
-            const db = getUsersDB();
             const senderUser = db[state.currentUser];
-            const recipientUser = db[recipientName];
-
-            if (!recipientUser) {
-                showCustomAlert(`User "${recipientName}" does not exist in the GMX network.`, "error");
-                return;
-            }
 
             if (type === 'coins') {
                 const amount = parseInt(elements.giftCoinsInput.value);
@@ -428,15 +432,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                // Deduct from current state & sender DB record
+                // Deduct from sender
                 state.coins -= amount;
                 updateCoinDisplays();
-                
-                if (senderUser) {
-                    senderUser.coins = state.coins;
-                }
+                senderUser.coins = state.coins;
 
-                // Add to recipient DB record instantly
+                // Push to recipient's giftsInbox
                 if (!recipientUser.giftsInbox) recipientUser.giftsInbox = [];
                 recipientUser.giftsInbox.push({
                     sender: state.currentUser,
@@ -446,11 +447,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     timestamp: new Date().toISOString(),
                     claimed: false
                 });
-                
-                // Save complete DB state (updates both sender balance and recipient inbox instantly)
+
+                // Save both sender and recipient updates back to the DB persistence layer
+                db[state.currentUser] = senderUser;
+                db[recipientUser.username] = recipientUser;
                 saveUsersDB(db);
 
-                showCustomAlert(`Successfully sent ${amount} GMX Coins to ${recipientName}!`, "success");
+                showCustomAlert(`Successfully sent ${amount} GMX Coins to ${recipientUser.username} with custom message!`, "success");
                 triggerGiftAnimationEffects();
                 elements.giftForm.reset();
 
@@ -465,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Remove from sender inventory
                 senderUser.inventory = senderUser.inventory.filter(item => item !== modName);
 
-                // Add to recipient inbox instantly
+                // Push to recipient's giftsInbox
                 if (!recipientUser.giftsInbox) recipientUser.giftsInbox = [];
                 recipientUser.giftsInbox.push({
                     sender: state.currentUser,
@@ -475,11 +478,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     timestamp: new Date().toISOString(),
                     claimed: false
                 });
-                
-                // Save complete DB state
+
+                // Save both sender and recipient updates back to the DB persistence layer
+                db[state.currentUser] = senderUser;
+                db[recipientUser.username] = recipientUser;
                 saveUsersDB(db);
 
-                showCustomAlert(`Successfully sent mod "${modName}" to ${recipientName}!`, "success");
+                showCustomAlert(`Successfully sent mod "${modName}" to ${recipientUser.username}!`, "success");
                 triggerGiftAnimationEffects();
                 elements.giftForm.reset();
             }
@@ -534,10 +539,11 @@ document.addEventListener('DOMContentLoaded', () => {
             user.inventory.push(gift.modName);
         }
 
+        db[state.currentUser] = user;
         saveUsersDB(db);
         renderGiftsInbox();
         triggerGiftAnimationEffects();
-        showCustomAlert("Gift successfully claimed and added to your account!", "success");
+        showCustomAlert("Gift successfully claimed and added to your account with festive alert animations!", "success");
     }
 
     function checkIncomingGifts(user) {
