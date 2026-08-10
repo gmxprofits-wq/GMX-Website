@@ -7,61 +7,9 @@
     <title>GMX Client Ecosystem - Fabric 1.21.11</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Supabase JavaScript Client Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-    <!-- SECURE AUTHENTICATION SYSTEM OVERLAY -->
-    <div id="authOverlay" class="auth-overlay">
-        <div class="auth-container">
-            <div class="auth-logo"><i class="fa-solid fa-cube"></i></div>
-            <h2>GMX Client</h2>
-            <p>Fabric 1.21.11 Secure Access Gateway</p>
-
-            <div class="auth-tabs">
-                <button type="button" class="auth-tab active" data-auth-target="login">Login</button>
-                <button type="button" class="auth-tab" data-auth-target="register">Register</button>
-            </div>
-
-            <!-- LOGIN FORM -->
-            <form id="loginFormContainer" class="auth-form active">
-                <div id="loginAlert" class="auth-alert"></div>
-                <div class="form-group">
-                    <label for="loginUsername">Username</label>
-                    <input type="text" id="loginUsername" class="form-control" required placeholder="Enter username">
-                </div>
-                <div class="form-group">
-                    <label for="loginPassword">Password</label>
-                    <input type="password" id="loginPassword" class="form-control" required placeholder="Enter password">
-                </div>
-                <div class="auth-checkbox-row">
-                    <label><input type="checkbox" id="rememberMe"> Remember Login</label>
-                </div>
-                <button type="submit" class="btn-auth">Access GMX Core</button>
-            </form>
-
-            <!-- REGISTER FORM -->
-            <form id="registerFormContainer" class="auth-form">
-                <div id="registerAlert" class="auth-alert"></div>
-                <div id="registerSuccess" class="auth-success-alert"></div>
-                <div class="form-group">
-                    <label for="regEmail">Email Address</label>
-                    <input type="email" id="regEmail" class="form-control" required placeholder="name@domain.com">
-                </div>
-                <div class="form-group">
-                    <label for="regUsername">Username</label>
-                    <input type="text" id="regUsername" class="form-control" required placeholder="Choose a username">
-                </div>
-                <div class="form-group">
-                    <label for="regPassword">Password (Secure Hash)</label>
-                    <input type="password" id="regPassword" class="form-control" required placeholder="Create secure password">
-                </div>
-                <button type="submit" class="btn-auth">Initialize Account</button>
-            </form>
-        </div>
-    </div>
 
     <!-- PREMIUM LOADING OVERLAY -->
     <div id="loadingOverlay" class="loading-overlay">
@@ -89,9 +37,6 @@
             <ul class="nav-links">
                 <li><a href="#" class="nav-item active" data-page="dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
                 <li><a href="#" class="nav-item" data-page="mods"><i class="fa-solid fa-puzzle-piece"></i> Mods Hub</a></li>
-                <li><a href="#" class="nav-item" data-page="wheel"><i class="fa-solid fa-dharmachakra"></i> Spin Wheel</a></li>
-                <li><a href="#" class="nav-item" data-page="rewards"><i class="fa-solid fa-gift"></i> Daily Rewards</a></li>
-                <li><a href="#" class="nav-item" data-page="gifts"><i class="fa-solid fa-box-open"></i> Gift Center</a></li>
                 <li><a href="#" class="nav-item" data-page="profile"><i class="fa-solid fa-user-shield"></i> User Profile</a></li>
             </ul>
         </aside>
@@ -102,12 +47,10 @@
                     <h2 id="pageTitleHeading">Dashboard Overview</h2>
                 </div>
                 <div class="header-user-controls">
-                    <div class="coin-pill"><i class="fa-solid fa-coins"></i> <span id="headerCoinDisplay">1,250</span> GMX</div>
                     <div class="user-profile-widget">
                         <div class="user-avatar" id="headerUserAvatar">GX</div>
                         <span id="headerUsernameDisplay" style="font-weight: 700; font-size: 0.9rem;">Operator</span>
                     </div>
-                    <button class="logout-btn" id="logoutBtn" title="Logout session"><i class="fa-solid fa-right-from-bracket"></i></button>
                 </div>
             </header>
 
@@ -116,7 +59,7 @@
                 <div id="dashboard-view" class="page-view active">
                     <div class="interactive-panel">
                         <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">Welcome back, <span id="dashUsername" class="text-gold">Operator</span>!</h2>
-                        <p class="text-muted" style="line-height: 1.6; margin-bottom: 2rem;">Your GMX Client profile is securely synchronized with Fabric 1.21.11 environment infrastructure. Explore optimized mods, claim daily reward stipends, spin the 24-hour wheel, send gifts, and manage your empire assets.</p>
+                        <p class="text-muted" style="line-height: 1.6; margin-bottom: 2rem;">Your GMX Client profile is securely synchronized with Fabric 1.21.11 environment infrastructure. Explore optimized mods and manage your empire assets.</p>
                         <div style="display: flex; gap: 1rem;">
                             <button class="btn-primary" onclick="document.querySelector('[data-page=\'mods\']').click()">Browse Mods Hub</button>
                         </div>
@@ -137,8 +80,8 @@
                                 <h3>GMX AutoAnchor</h3>
                                 <p>GMX AutoAnchor is a lightweight Fabric mod for Minecraft 1.21.11 that streamlines Respawn Anchor inventory management. It helps you quickly switch between your selected items during anchor use, with customizable delays, a clean HUD, and smooth performance.</p>
                                 <div class="mod-card-footer" id="mod-action-GMX-AutoAnchor">
-                                    <span class="mod-price text-gold">300 Coins</span>
-                                    <button class="btn-buy" onclick="purchaseMod(300, 'GMX AutoAnchor')">Unlock</button>
+                                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Ready</span>
+                                    <button class="btn-download" onclick="downloadModFile('GMXAutoAnchor v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
                                 </div>
                             </div>
                         </div>
@@ -154,8 +97,8 @@
                                 <h3>GMX Crystal Optimizer</h3>
                                 <p>GMX Crystal Optimizer is a lightweight Fabric mod for Minecraft 1.21.11 designed to improve End Crystal PvP performance. It optimizes crystal rendering, reduces visual clutter, and enhances overall competitive smoothness.</p>
                                 <div class="mod-card-footer" id="mod-action-GMX-Crystal-Optimizer">
-                                    <span class="mod-price text-gold">300 Coins</span>
-                                    <button class="btn-buy" onclick="purchaseMod(300, 'GMX Crystal Optimizer')">Unlock</button>
+                                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Ready</span>
+                                    <button class="btn-download" onclick="downloadModFile('GMXCrystalOptimizer v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
                                 </div>
                             </div>
                         </div>
@@ -171,8 +114,8 @@
                                 <h3>GMX Auto Axe</h3>
                                 <p>GMX Auto Axe is a specialized Fabric mod for Minecraft 1.21.11 that automatically switches to your axe to break enemy shields during intense player-versus-player combat, giving you a competitive edge.</p>
                                 <div class="mod-card-footer" id="mod-action-GMX-Auto-Axe">
-                                    <span class="mod-price text-gold">300 Coins</span>
-                                    <button class="btn-buy" onclick="purchaseMod(300, 'GMX Auto Axe')">Unlock</button>
+                                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Ready</span>
+                                    <button class="btn-download" onclick="downloadModFile('GMXAutoAxe v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
                                 </div>
                             </div>
                         </div>
@@ -188,92 +131,9 @@
                                 <h3>GMX Smart Totem</h3>
                                 <p>GMX Smart Totem is a utility Fabric mod for Minecraft 1.21.11 that automatically manages and refills totems of undying into your offhand slot during critical moments, maximizing your survivability in high-tier PvP.</p>
                                 <div class="mod-card-footer" id="mod-action-GMX-Smart-Totem">
-                                    <span class="mod-price text-gold">250 Coins</span>
-                                    <button class="btn-buy" onclick="purchaseMod(250, 'GMX Smart Totem')">Unlock</button>
+                                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Ready</span>
+                                    <button class="btn-download" onclick="downloadModFile('GmxSmartTotemClient.jar')"><i class="fa-solid fa-download"></i> Download</button>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SPIN WHEEL VIEW -->
-                <div id="wheel-view" class="page-view">
-                    <div class="interactive-panel" style="text-align: center;">
-                        <h2>Daily 24H GMX Spin Wheel</h2>
-                        <p class="text-muted" style="margin-top: 0.5rem;">Spin once every 24 hours to win a random coin stipend.</p>
-                        <div id="wheelTimerDisplay" class="text-gold" style="font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-top: 0.5rem; font-size: 0.95rem;"></div>
-                        
-                        <div class="wheel-container">
-                            <div class="pointer-arrow"></div>
-                            <div class="wheel" id="spinWheelElement">
-                                <div class="wheel-section"><span>100</span></div>
-                                <div class="wheel-section"><span>250</span></div>
-                                <div class="wheel-section"><span>500</span></div>
-                                <div class="wheel-section"><span>50</span></div>
-                                <div class="wheel-section"><span>1000</span></div>
-                                <div class="wheel-section"><span>200</span></div>
-                            </div>
-                        </div>
-
-                        <button id="spinWheelBtn" class="btn-primary" style="margin-top: 1rem;"><i class="fa-solid fa-play"></i> Spin Wheel Now</button>
-                    </div>
-                </div>
-
-                <!-- DAILY REWARDS VIEW -->
-                <div id="rewards-view" class="page-view">
-                    <div class="interactive-panel" style="max-width: 600px; margin: 0 auto; text-align: center;">
-                        <h2><i class="fa-solid fa-gift text-gold"></i> Daily Claim Stipend</h2>
-                        <p class="text-muted" style="margin-top: 0.5rem; margin-bottom: 2rem;">Claim your daily login reward bonus to expand your GMX coin balance.</p>
-                        <div style="font-size: 2.5rem; font-family: 'JetBrains Mono', monospace; font-weight: 800; color: var(--accent); margin-bottom: 2rem; text-shadow: 0 0 15px var(--accent-glow);">+500 COINS</div>
-                        <button id="claimDailyBtn" class="btn-primary" style="font-size: 1.1rem; padding: 0.85rem 2rem; width: 100%; justify-content: center;"><i class="fa-solid fa-circle-check"></i> Claim Daily Reward</button>
-                    </div>
-                </div>
-
-                <!-- GIFT CENTER VIEW -->
-                <div id="gifts-view" class="page-view">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-                        <div class="interactive-panel" style="max-width: 100%; text-align: left;">
-                            <h2><i class="fa-solid fa-paper-plane text-gold"></i> Send a Gift</h2>
-                            <p class="text-muted" style="margin-top: 0.5rem; margin-bottom: 1.5rem;">Transfer GMX coins or unlocked mods with custom messages and receiver alerts.</p>
-                            
-                            <form id="giftForm">
-                                <div class="form-group">
-                                    <label for="giftRecipient">Recipient Username</label>
-                                    <input type="text" id="giftRecipient" class="form-control" required placeholder="Enter friend's username">
-                                </div>
-                                <div class="form-group">
-                                    <label for="giftType">Gift Category</label>
-                                    <select id="giftType" class="form-control">
-                                        <option value="coins">GMX Coins</option>
-                                        <option value="mod">Unlocked Mod Item</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" id="giftCoinAmountContainer">
-                                    <label for="giftCoinsInput">Coin Amount</label>
-                                    <input type="number" id="giftCoinsInput" class="form-control" min="1" value="100" placeholder="Amount of coins">
-                                </div>
-                                <div class="form-group" id="giftItemSelectContainer" style="display: none;">
-                                    <label for="giftModSelect">Select Mod Item</label>
-                                    <select id="giftModSelect" class="form-control">
-                                        <option value="GMX AutoAnchor">GMX AutoAnchor</option>
-                                        <option value="GMX Crystal Optimizer">GMX Crystal Optimizer</option>
-                                        <option value="GMX Auto Axe">GMX Auto Axe</option>
-                                        <option value="GMX Smart Totem">GMX Smart Totem</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="giftMessage">Personalized Message</label>
-                                    <input type="text" id="giftMessage" class="form-control" placeholder="Enjoy your gift!">
-                                </div>
-                                <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;"><i class="fa-solid fa-gift"></i> Dispatch Gift</button>
-                            </form>
-                        </div>
-
-                        <div class="interactive-panel" style="max-width: 100%; text-align: left;">
-                            <h2><i class="fa-solid fa-inbox text-gold"></i> Gifts Inbox</h2>
-                            <p class="text-muted" style="margin-top: 0.5rem; margin-bottom: 1.5rem;">Claim incoming gifts sent by other network operators.</p>
-                            <div id="giftsInboxList" style="max-height: 400px; overflow-y: auto;">
-                                <p class="text-muted" style="text-align:center; padding: 2rem;">No incoming gifts found in your inbox.</p>
                             </div>
                         </div>
                     </div>
@@ -287,7 +147,6 @@
                             <div><strong>Username:</strong> <span id="profileUsername" class="text-gold">Operator</span></div>
                             <div><strong>Email:</strong> <span id="profileEmail" class="text-muted">operator@gmx.empire</span></div>
                             <div><strong>Account Status:</strong> <span style="color: var(--success); text-shadow: 0 0 8px rgba(16,185,129,0.4);">Active & Verified (Fabric 1.21.11)</span></div>
-                            <div><strong>GMX Balance:</strong> <span id="profileCoinBalance" class="text-gold">1,250</span> Coins</div>
                         </div>
                     </div>
                 </div>
