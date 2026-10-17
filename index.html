@@ -1,159 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="google-site-verification" content="_c4YkNBxGcRbvFilWm6h6Vyfk3O8YG68fbUSMeqoZn0" />
-    <title>GMX Client Ecosystem - Fabric 1.21.11</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Colon Code Translator</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <!-- PREMIUM LOADING OVERLAY -->
-    <div id="loadingOverlay" class="loading-overlay">
-        <div class="spinner-ring"></div>
-        <h3 id="loadingText" class="text-gold font-bold">Synchronizing GMX Profile...</h3>
-    </div>
+  <!-- ===== REGISTRATION GATE ===== -->
+  <div class="gate-overlay" id="gate">
+    <div class="gate-box">
+      <div class="gate-icon">🔐</div>
+      <h2>Welcome</h2>
+      <p class="gate-sub">Enter your invite code and choose a username to continue</p>
 
-    <!-- CUSTOM BEAUTIFUL ALERT MODAL -->
-    <div id="gmxModalOverlay">
-        <div class="gmx-modal-card">
-            <div id="gmxModalIcon" class="gmx-modal-icon success"><i class="fa-solid fa-circle-check"></i></div>
-            <h3 id="gmxModalTitle">Notification</h3>
-            <p id="gmxModalMessage">Message text goes here.</p>
-            <button id="gmxModalBtn" class="btn-auth">Confirm</button>
+      <label class="gate-label">Invite Code</label>
+      <input type="text" id="gateCode" placeholder="XXXX-XXXX" autocomplete="off">
+
+      <label class="gate-label">Username</label>
+      <input type="text" id="gateName" placeholder="Enter your username" maxlength="20" autocomplete="off">
+
+      <button class="btn primary gate-btn" onclick="submitGate()">Enter</button>
+      <p class="gate-error" id="gateError"></p>
+
+      <p class="gate-admin-hint">🛡️ Admin? <a href="#" onclick="showAdminLogin(); return false;">Click here</a></p>
+    </div>
+  </div>
+
+  <!-- ===== ADMIN LOGIN GATE ===== -->
+  <div class="gate-overlay" id="adminGate">
+    <div class="gate-box">
+      <div class="gate-icon">🛡️</div>
+      <h2>Admin Access</h2>
+      <p class="gate-sub">Enter admin passcode</p>
+
+      <label class="gate-label">Passcode</label>
+      <input type="password" id="gateAdminPass" placeholder="Enter passcode" autocomplete="off">
+
+      <button class="btn primary gate-btn" onclick="submitAdminGate()">Login as Admin</button>
+      <p class="gate-error" id="gateAdminError"></p>
+
+      <p class="gate-admin-hint"><a href="#" onclick="showUserLogin(); return false;">← Back to user login</a></p>
+    </div>
+  </div>
+
+  <!-- ===== MAIN WEBSITE ===== -->
+  <div id="mainSite" style="display:none; width:100%;">
+
+    <!-- Top bar with user info -->
+    <div class="topbar">
+      <div class="user-info">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div class="user-details">
+          <span class="user-name" id="userName">Guest</span>
+          <span class="user-id" id="userId">ID: —</span>
         </div>
+      </div>
+      <button class="edit-user-btn" onclick="logout()">Logout</button>
     </div>
 
-    <!-- MAIN GMX MODS APP WORKSPACE -->
-    <div id="appWorkspace">
-        <aside>
-            <div class="brand-box">
-                <i class="fa-solid fa-cube"></i>
-                <h1>GMX CLIENT</h1>
-            </div>
-            <ul class="nav-links">
-                <li><a href="#" class="nav-item active" data-page="dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
-                <li><a href="#" class="nav-item" data-page="mods"><i class="fa-solid fa-puzzle-piece"></i> Mods Hub</a></li>
-                <li><a href="#" class="nav-item" data-page="profile"><i class="fa-solid fa-user-shield"></i> User Profile</a></li>
-            </ul>
-        </aside>
+    <header class="hero">
+      <div class="hero-badge">🔐 Secret Language</div>
+      <h1>Colon Code Translator</h1>
+      <p class="subtitle">
+        Encode & decode messages using only <code>:</code> <code>,</code> <code>?</code> <code>'</code><br>
+        <span class="rule">Rule: space between letters • double space between words</span>
+      </p>
+    </header>
 
-        <main>
-            <header>
-                <div class="header-title">
-                    <h2 id="pageTitleHeading">Dashboard Overview</h2>
-                </div>
-                <div class="header-user-controls">
-                    <div class="user-profile-widget">
-                        <div class="user-avatar" id="headerUserAvatar">GX</div>
-                        <span id="headerUsernameDisplay" style="font-weight: 700; font-size: 0.9rem;">Operator</span>
-                    </div>
-                </div>
-            </header>
+    <main class="container">
 
-            <div class="content-body">
-                <!-- DASHBOARD VIEW -->
-                <div id="dashboard-view" class="page-view active">
-                    <div class="interactive-panel">
-                        <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">Welcome back, <span id="dashUsername" class="text-gold">Operator</span>!</h2>
-                        <p class="text-muted" style="line-height: 1.6; margin-bottom: 2rem;">Your GMX Client profile is securely synchronized with Fabric 1.21.11 environment infrastructure. Explore optimized mods and manage your empire assets.</p>
-                        <div style="display: flex; gap: 1rem;">
-                            <button class="btn-primary" onclick="document.querySelector('[data-page=\'mods\']').click()">Browse Mods Hub</button>
-                        </div>
-                    </div>
-                </div>
+      <!-- CODE → LETTERS -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-icon">🔓</div>
+          <div>
+            <h2>Code → Letters</h2>
+            <p class="card-sub">Paste code and decode it into a phrase</p>
+          </div>
+        </div>
 
-                <!-- MODS VIEW -->
-                <div id="mods-view" class="page-view">
-                    <div class="mods-grid">
-                        <!-- GMX AutoAnchor -->
-                        <div class="mod-card">
-                            <div class="mod-img-wrap">
-                                <i class="fa-solid fa-anchor"></i>
-                                <span class="mod-version-tag">v1.21.11</span>
-                            </div>
-                            <div class="mod-card-body">
-                                <div class="mod-tags"><span class="mod-tag tag-pvp">Anchor Utility</span></div>
-                                <h3>GMX AutoAnchor</h3>
-                                <p>GMX AutoAnchor is a lightweight Fabric mod for Minecraft 1.21.11 that streamlines Respawn Anchor inventory management. It helps you quickly switch between your selected items during anchor use, with customizable delays, a clean HUD, and smooth performance.</p>
-                                <div class="mod-card-footer" id="mod-action-GMX-AutoAnchor">
-                                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Ready</span>
-                                    <button class="btn-download" onclick="downloadModFile('GMXAutoAnchor v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
-                                </div>
-                            </div>
-                        </div>
+        <textarea id="codeInput" placeholder="Example:  : : : ,   : : : : ,"></textarea>
 
-                        <!-- GMX Crystal Optimizer -->
-                        <div class="mod-card">
-                            <div class="mod-img-wrap">
-                                <i class="fa-solid fa-gem"></i>
-                                <span class="mod-version-tag">v1.21.11</span>
-                            </div>
-                            <div class="mod-card-body">
-                                <div class="mod-tags"><span class="mod-tag tag-pvp">End Crystal PvP</span></div>
-                                <h3>GMX Crystal Optimizer</h3>
-                                <p>GMX Crystal Optimizer is a lightweight Fabric mod for Minecraft 1.21.11 designed to improve End Crystal PvP performance. It optimizes crystal rendering, reduces visual clutter, and enhances overall competitive smoothness.</p>
-                                <div class="mod-card-footer" id="mod-action-GMX-Crystal-Optimizer">
-                                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Ready</span>
-                                    <button class="btn-download" onclick="downloadModFile('GMXCrystalOptimizer v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
-                                </div>
-                            </div>
-                        </div>
+        <div class="btn-row">
+          <button class="btn primary" onclick="codeToLetters()">Translate</button>
+          <button class="btn ghost" onclick="clearField('codeInput', 'codeOutput')">Clear</button>
+        </div>
 
-                        <!-- GMX Auto Axe -->
-                        <div class="mod-card">
-                            <div class="mod-img-wrap">
-                                <i class="fa-solid fa-axe-battle"></i>
-                                <span class="mod-version-tag">v1.21.11</span>
-                            </div>
-                            <div class="mod-card-body">
-                                <div class="mod-tags"><span class="mod-tag tag-pvp">Combat Utility</span></div>
-                                <h3>GMX Auto Axe</h3>
-                                <p>GMX Auto Axe is a specialized Fabric mod for Minecraft 1.21.11 that automatically switches to your axe to break enemy shields during intense player-versus-player combat, giving you a competitive edge.</p>
-                                <div class="mod-card-footer" id="mod-action-GMX-Auto-Axe">
-                                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Ready</span>
-                                    <button class="btn-download" onclick="downloadModFile('GMXAutoAxe v1.jar')"><i class="fa-solid fa-download"></i> Download</button>
-                                </div>
-                            </div>
-                        </div>
+        <div class="output-header">
+          <span class="output-label">Output</span>
+          <button class="copy-btn" onclick="copyOutput('codeOutput', event)">📋 Copy</button>
+        </div>
+        <div class="output" id="codeOutput">Your decoded text will appear here…</div>
+      </section>
 
-                        <!-- GMX Smart Totem -->
-                        <div class="mod-card">
-                            <div class="mod-img-wrap">
-                                <i class="fa-solid fa-shield-halved"></i>
-                                <span class="mod-version-tag">v1.21.11</span>
-                            </div>
-                            <div class="mod-card-body">
-                                <div class="mod-tags"><span class="mod-tag tag-pvp">Totem Utility</span></div>
-                                <h3>GMX Smart Totem</h3>
-                                <p>GMX Smart Totem is a utility Fabric mod for Minecraft 1.21.11 that automatically manages and refills totems of undying into your offhand slot during critical moments, maximizing your survivability in high-tier PvP.</p>
-                                <div class="mod-card-footer" id="mod-action-GMX-Smart-Totem">
-                                    <span class="mod-version-tag" style="position:static; background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3)">Ready</span>
-                                    <button class="btn-download" onclick="downloadModFile('GmxSmartTotemClient.jar')"><i class="fa-solid fa-download"></i> Download</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+      <!-- LETTERS → CODE -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-icon">🔒</div>
+          <div>
+            <h2>Letters → Code</h2>
+            <p class="card-sub">Type a phrase and encode it into code</p>
+          </div>
+        </div>
 
-                <!-- PROFILE VIEW -->
-                <div id="profile-view" class="page-view">
-                    <div class="interactive-panel" style="max-width: 700px; margin: 0 auto; text-align: left;">
-                        <h2 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-user-gear"></i> Account Security & Profile</h2>
-                        <div style="display: flex; flex-direction: column; gap: 1rem;">
-                            <div><strong>Username:</strong> <span id="profileUsername" class="text-gold">Operator</span></div>
-                            <div><strong>Email:</strong> <span id="profileEmail" class="text-muted">operator@gmx.empire</span></div>
-                            <div><strong>Account Status:</strong> <span style="color: var(--success); text-shadow: 0 0 8px rgba(16,185,129,0.4);">Active & Verified (Fabric 1.21.11)</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
+        <textarea id="letterInput" placeholder="Example:  HI BUDDY"></textarea>
 
-    <script src="script.js"></script>
+        <div class="btn-row">
+          <button class="btn primary" onclick="lettersToCode()">Translate</button>
+          <button class="btn ghost" onclick="clearField('letterInput', 'letterOutput')">Clear</button>
+        </div>
+
+        <div class="output-header">
+          <span class="output-label">Output</span>
+          <button class="copy-btn" onclick="copyOutput('letterOutput', event)">📋 Copy</button>
+        </div>
+        <div class="output" id="letterOutput">Your code will appear here…</div>
+      </section>
+
+    </main>
+
+    <!-- LEGEND -->
+    <section class="legend">
+      <div class="legend-header">
+        <h3>📖 Alphabet Legend</h3>
+        <button class="btn ghost small" onclick="toggleLegend()" id="legendToggle">Hide</button>
+      </div>
+      <div class="legend-grid" id="legendGrid"></div>
+    </section>
+
+    <!-- ADMIN PANEL (only shows for admin) -->
+    <section class="admin-section" id="adminSection" style="display:none;">
+      <div class="admin-header">
+        <h3>🛡️ Admin Panel</h3>
+        <span class="admin-lock unlocked">🔓 Admin</span>
+      </div>
+
+      <!-- Invite code generator -->
+      <div class="admin-block">
+        <h4>🔑 Generate Invite Codes</h4>
+        <p class="admin-desc">Create unique codes for new users. Give a code to someone so they can register.</p>
+        <div class="admin-input-row">
+          <input type="text" id="codeLabel" placeholder="Note (optional, e.g. 'for John')" maxlength="30">
+          <button class="btn primary" onclick="generateInvite()">Generate Code</button>
+        </div>
+        <div class="invite-list" id="inviteList"></div>
+      </div>
+
+      <!-- Registered users -->
+      <div class="admin-block">
+        <h4>👥 Registered Users</h4>
+        <p class="admin-desc">Everyone who has registered with an invite code.</p>
+        <div class="user-list" id="userList"></div>
+      </div>
+
+      <!-- Stats -->
+      <div class="admin-block">
+        <h4>📊 Stats</h4>
+        <div class="admin-stats">
+          <div class="stat-card">
+            <span class="stat-label">Total Users</span>
+            <span class="stat-value" id="statUsers">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Unused Codes</span>
+            <span class="stat-value" id="statUnused">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Used Codes</span>
+            <span class="stat-value" id="statUsed">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Your ID</span>
+            <span class="stat-value" id="statAdminId">ADMIN</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p>Every letter is a code. Letters are separated by a space. Words are separated by two spaces.</p>
+    </footer>
+
+  </div>
+
+  <div id="toast" class="toast">✓ Copied!</div>
+
+  <script src="script.js"></script>
 </body>
 </html>
